@@ -1,0 +1,6 @@
+# simple resources (for now)
+
+
+      vantage -  LQK8ABGMT2AN0P0U
+
+ coingecko - url = f"https://api.coingecko.com/api/v3/coins/{crypto_name.lower()}?localization=false&tickers=false&market_data=true"
