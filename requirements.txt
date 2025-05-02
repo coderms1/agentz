@@ -1,6 +1,7 @@
-# simple resources (for now)
-
-
-      vantage -  LQK8ABGMT2AN0P0U
-
- coingecko - url = f"https://api.coingecko.com/api/v3/coins/{crypto_name.lower()}?localization=false&tickers=false&market_data=true"
+python-telegram-bot==20.7
+fastapi==0.115.0
+uvicorn==0.30.6
+requests==2.32.3
+python-dotenv==1.0.1
+anthropic==0.34.2
+cachetools==5.5.0

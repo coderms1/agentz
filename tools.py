@@ -3,9 +3,13 @@ import time
 import os
 from dotenv import load_dotenv
 from anthropic import Anthropic, AnthropicError
+from cachetools import TTLCache
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Cache for crypto analysis (5-minute TTL, max 100 items)
+crypto_cache = TTLCache(maxsize=100, ttl=300)
 
 
 def stock_analysis_tool():
@@ -53,30 +57,14 @@ def stock_analysis_tool():
             fmp_data = fmp_response.json()
 
             if not fmp_data or "error" in fmp_data:
-                # Fallback to IEX Cloud
-                iex_api_key = os.getenv("IEX_CLOUD_API_KEY")
-                if not iex_api_key:
-                    return "Error: IEX Cloud API key not found in environment variables, and FMP request failed."
+                return f"No stock data found for {stock_symbol} using FMP. Please check the stock symbol or try again later."
 
-                iex_url = f"https://cloud.iexapis.com/stable/stock/{stock_symbol}/quote?token={iex_api_key}"
-                iex_response = requests.get(iex_url)
-                iex_data = iex_response.json()
-
-                if "error" in iex_data or not iex_data:
-                    return f"No stock data found for {stock_symbol} using IEX Cloud. Response: {iex_data}"
-
-                price = float(iex_data["latestPrice"])
-                change_percent = float(iex_data["changePercent"]) * 100  # Convert to percentage
-                trend = "upward" if change_percent > 0 else "downward" if change_percent < 0 else "stable"
-                recommendation = "Buy" if change_percent > 2 else "Sell" if change_percent < -2 else "Hold"
-                source = "IEX Cloud"
-            else:
-                # Process FMP response
-                price = float(fmp_data[0]["price"])
-                change_percent = float(fmp_data[0]["changesPercentage"])
-                trend = "upward" if change_percent > 0 else "downward" if change_percent < 0 else "stable"
-                recommendation = "Buy" if change_percent > 2 else "Sell" if change_percent < -2 else "Hold"
-                source = "FMP"
+            # Process FMP response
+            price = float(fmp_data[0]["price"])
+            change_percent = float(fmp_data[0]["changesPercentage"])
+            trend = "upward" if change_percent > 0 else "downward" if change_percent < 0 else "stable"
+            recommendation = "Buy" if change_percent > 2 else "Sell" if change_percent < -2 else "Hold"
+            source = "FMP"
 
             # Handle follow-up questions
             if "price" in message_lower:
@@ -101,7 +89,10 @@ def stock_analysis_tool():
 def crypto_analysis_tool():
     def analyze_crypto(message):
         try:
-            # Extract crypto name
+            cache_key = f"crypto_{message.lower()}"
+            if cache_key in crypto_cache:
+                return crypto_cache[cache_key]
+
             message_lower = message.lower()
             crypto_name = None
             crypto_names = ["bitcoin", "ethereum", "solana", "polkadot", "avalanche", "chainlink", "injective", "sui"]
@@ -126,13 +117,16 @@ def crypto_analysis_tool():
 
                 # Handle follow-up questions
                 if "price" in message_lower:
-                    return f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
+                    response = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
                 elif "trend" in message_lower:
-                    return f"Crypto Trend for {crypto_name.capitalize()}: {trend}"
+                    response = f"Crypto Trend for {crypto_name.capitalize()}: {trend}"
                 elif "recommendation" in message_lower:
-                    return f"Crypto Recommendation for {crypto_name.capitalize()}: {recommendation}"
+                    response = f"Crypto Recommendation for {crypto_name.capitalize()}: {recommendation}"
                 else:
-                    return f"Crypto Analysis for {crypto_name.capitalize()}: Price: ${price:.2f}, Trend: {trend}, Recommendation: {recommendation}"
+                    response = f"Crypto Analysis for {crypto_name.capitalize()}: Price: ${price:.2f}, Trend: {trend}, Recommendation: {recommendation}"
+
+                crypto_cache[cache_key] = response
+                return response
             return f"Crypto data not found for {crypto_name}. Ensure the name is correct (e.g., 'bitcoin', 'ethereum'). Response: {data}"
         except Exception as e:
             return f"Error fetching crypto data: {str(e)}"

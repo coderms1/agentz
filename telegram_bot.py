@@ -1,4 +1,5 @@
 import os
+import asyncio
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -6,13 +7,18 @@ from market_strategist import MarketStrategist
 from tools import stock_analysis_tool, crypto_analysis_tool, market_news_tool, general_query_tool
 from guardrails import safe_process
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
+import logging
+
+# Monitor Render's Logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-WEBHOOK_URL = os.getenv(
-    "WEBHOOK_URL")  # Set this in Render as your Render URL, e.g., https://your-app.onrender.com/webhook
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Only needed for webhook mode (e.g., on Render)
+ENVIRONMENT = os.getenv("ENVIRONMENT", "local")  # Set to "production" on Render
 
 # Initialize the Market Strategist bot
 strategist = MarketStrategist(
@@ -144,19 +150,29 @@ async def webhook(request: Request):
 
 
 # Main function to run the bot
-def main():
+async def main():
     global application
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Set webhook
-    application.bot.set_webhook(url=WEBHOOK_URL)
-
-    print("Bot is running with webhook...")
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    if ENVIRONMENT == "production":
+        # Set webhook for production
+        if not WEBHOOK_URL:
+            raise ValueError("WEBHOOK_URL must be set in production environment")
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        print("Bot is running with webhook...")
+        uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    else:
+        # Use polling for local testing
+        print("Bot is running with polling...")
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+        # Keep the bot running until interrupted
+        await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
