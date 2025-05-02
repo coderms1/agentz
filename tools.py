@@ -94,17 +94,22 @@ def crypto_analysis_tool():
                 return crypto_cache[cache_key]
 
             message_lower = message.lower()
-            crypto_name = None
-            crypto_names = ["bitcoin", "ethereum", "solana", "polkadot", "avalanche", "chainlink", "injective", "sui"]
-            for name in crypto_names:
-                if name in message_lower:
-                    crypto_name = name
+            # Fetch the list of coins from CoinGecko
+            coins_response = requests.get("https://api.coingecko.com/api/v3/coins/list")
+            coins = coins_response.json()
+
+            # Find the crypto by name or symbol
+            crypto_id = None
+            for coin in coins:
+                if coin["name"].lower() in message_lower or coin["symbol"].lower() in message_lower:
+                    crypto_id = coin["id"]
+                    crypto_name = coin["name"]
                     break
 
-            if not crypto_name:
-                return "Error: Could not identify cryptocurrency name. Please specify a crypto like 'Bitcoin' or 'Ethereum'."
+            if not crypto_id:
+                return "Error: Could not identify cryptocurrency. Please specify a valid crypto name or symbol (e.g., Bitcoin, ETH)."
 
-            url = f"https://api.coingecko.com/api/v3/coins/{crypto_name.lower()}?localization=false&tickers=false&market_data=true"
+            url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}?localization=false&tickers=false&market_data=true"
             response = requests.get(url)
             data = response.json()
             if "error" in data:
@@ -127,7 +132,7 @@ def crypto_analysis_tool():
 
                 crypto_cache[cache_key] = response
                 return response
-            return f"Crypto data not found for {crypto_name}. Ensure the name is correct (e.g., 'bitcoin', 'ethereum'). Response: {data}"
+            return f"Crypto data not found for {crypto_name}. Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth'). Response: {data}"
         except Exception as e:
             return f"Error fetching crypto data: {str(e)}"
 
