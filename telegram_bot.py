@@ -153,7 +153,7 @@ async def webhook(request: Request):
 async def main():
     global application
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
+    print("Bot initialized successfully")
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
