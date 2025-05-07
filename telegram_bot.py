@@ -1,12 +1,13 @@
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 import asyncio
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from market_strategist import MarketStrategist
 from tools import stock_analysis_tool, crypto_analysis_tool, market_news_tool, general_query_tool
 from guardrails import safe_process
@@ -33,6 +34,7 @@ app = FastAPI()
 # Define application globally
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+
 # Start command to show the menu
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -50,6 +52,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# Handle button presses for "More Details"
+async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    if user_id not in user_data:
+        user_data[user_id] = {"last_analyzed": None, "last_detailed_info": None, "last_query_type": None, "state": None}
+
+    if query.data == "more_details":
+        detailed_info = user_data[user_id].get("last_detailed_info")
+        last_analyzed = user_data[user_id].get("last_analyzed", "this query")
+        if detailed_info:
+            await query.message.reply_text(detailed_info)
+        else:
+            await query.message.reply_text(f"No detailed information available for {last_analyzed}.")
+        user_data[user_id]["state"] = None
+
+
 # Handle user messages
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -62,26 +83,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check the current state
     state = user_data[user_id].get("state")
 
-    # Handle "Look inside" for any query type
-    if state == "waiting_for_detailed_response":
-        if message_text.lower() == "look inside":
-            detailed_info = user_data[user_id].get("last_detailed_info")
-            query_type = user_data[user_id].get("last_query_type")
-            last_analyzed = user_data[user_id].get("last_analyzed", "this query")
-            if detailed_info:
-                await update.message.reply_text(detailed_info)
-            else:
-                await update.message.reply_text(f"No detailed information available for {last_analyzed}.")
-        else:
-            await update.message.reply_text("Please type 'Look inside' to see more details, or select a new option from the menu.")
-        user_data[user_id]["state"] = None
-        return
-
     # Handle menu selections
     if message_text.startswith("1"):
         user_data[user_id]["state"] = "waiting_for_stock"
         user_data[user_id]["last_query_type"] = "stock"
-        await update.message.reply_text("Which stock would you like to analyze? (e.g., Apple, GOOGL)")
+        await update.message.reply_text("Which stock would you like to analyze? (e.g., Apple, TSLA)")
         return
 
     elif message_text.startswith("2"):
@@ -96,7 +102,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["last_analyzed"] = "market news"
         user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
         user_data[user_id]["state"] = "waiting_for_detailed_response"
-        await update.message.reply_text(f"{response['summary']}\n\nType 'Look inside' for more details.")
+        # Add inline button for "More Details"
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("More Details", callback_data="more_details")]
+        ])
+        await update.message.reply_text(response["summary"], reply_markup=reply_markup)
         return
 
     elif message_text.startswith("4"):
@@ -126,7 +136,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["last_analyzed"] = message_text
         user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
         user_data[user_id]["state"] = "waiting_for_detailed_response"
-        await update.message.reply_text(f"{response['summary']}\n\nType 'Look inside' for more details about {message_text}.")
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("More Details", callback_data="more_details")]
+        ])
+        await update.message.reply_text(
+            f"{response['summary']}\n\nPress the button below for more details about {message_text}.",
+            reply_markup=reply_markup)
 
     elif state == "waiting_for_crypto":
         if not message_text:
@@ -136,7 +151,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["last_analyzed"] = message_text
         user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
         user_data[user_id]["state"] = "waiting_for_detailed_response"
-        await update.message.reply_text(f"{response['summary']}\n\nType 'Look inside' for more details about {message_text}.")
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("More Details", callback_data="more_details")]
+        ])
+        await update.message.reply_text(
+            f"{response['summary']}\n\nPress the button below for more details about {message_text}.",
+            reply_markup=reply_markup)
 
     elif state == "waiting_for_general":
         if not message_text:
@@ -146,7 +166,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id]["last_analyzed"] = message_text
         user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
         user_data[user_id]["state"] = "waiting_for_detailed_response"
-        await update.message.reply_text(f"{response['summary']}\n\nType 'Look inside' for the full response.")
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("More Details", callback_data="more_details")]
+        ])
+        await update.message.reply_text(f"{response['summary']}\n\nPress the button below for the full response.",
+                                        reply_markup=reply_markup)
 
     elif state == "waiting_for_followup":
         last_analyzed = user_data[user_id].get("last_analyzed")
@@ -157,7 +181,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = safe_process(strategist, query)
         user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
         user_data[user_id]["state"] = "waiting_for_detailed_response"
-        await update.message.reply_text(f"{response['summary']}\n\nType 'Look inside' for more details.")
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("More Details", callback_data="more_details")]
+        ])
+        await update.message.reply_text(f"{response['summary']}\n\nPress the button below for more details.",
+                                        reply_markup=reply_markup)
 
     else:
         await update.message.reply_text("Please select an option from the menu.")
@@ -170,14 +198,17 @@ async def webhook(request: Request):
     await application.process_update(update)
     return {"status": "ok"}
 
+
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
+
 
 # Main function to run the bot
 async def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CallbackQueryHandler(handle_button))
 
     if ENVIRONMENT == "production":
         # Set webhook for production

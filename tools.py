@@ -14,7 +14,7 @@ crypto_cache = TTLCache(maxsize=100, ttl=300)
 def stock_analysis_tool():
     def analyze_stock(message):
         try:
-            time.sleep(1)  # Add 1-second delay to avoid rate limits
+            time.sleep(1)
             message_lower = message.lower()
             stock_name = None
             stock_names = ["apple", "google", "microsoft", "amazon", "tesla"]
@@ -47,32 +47,61 @@ def stock_analysis_tool():
             if not fmp_api_key:
                 return {"summary": "Error: FMP API key not found.", "details": "FMP API key is missing in environment variables."}
 
-            fmp_url = f"https://financialmodelingprep.com/api/v3/quote/{stock_symbol}?apikey={fmp_api_key}"
-            fmp_response = requests.get(fmp_url)
-            fmp_data = fmp_response.json()
+            # Fetch quote data
+            quote_url = f"https://financialmodelingprep.com/api/v3/quote/{stock_symbol}?apikey={fmp_api_key}"
+            quote_response = requests.get(quote_url)
+            quote_data = quote_response.json()
 
-            if not fmp_data or "error" in fmp_data:
+            if not quote_data or "error" in quote_data:
                 return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol or try again later."}
 
-            price = float(fmp_data[0]["price"])
-            change_percent = float(fmp_data[0]["changesPercentage"])
+            # Fetch profile data for market cap and volume
+            profile_url = f"https://financialmodelingprep.com/api/v3/profile/{stock_symbol}?apikey={fmp_api_key}"
+            profile_response = requests.get(profile_url)
+            profile_data = profile_response.json()
+
+            # Fetch recent news
+            news_url = f"https://financialmodelingprep.com/api/v3/stock_news?tickers={stock_symbol}&limit=1&apikey={fmp_api_key}"
+            news_response = requests.get(news_url)
+            news_data = news_response.json()
+
+            price = float(quote_data[0]["price"])
+            change_percent = float(quote_data[0]["changesPercentage"])
             trend = "upward" if change_percent > 0 else "downward" if change_percent < 0 else "stable"
             recommendation = "Buy" if change_percent > 2 else "Sell" if change_percent < -2 else "Hold"
             source = "FMP"
+
+            # Additional trader-relevant details
+            market_cap = profile_data[0]["mktCap"] if profile_data else "N/A"
+            volume = quote_data[0]["volume"] if "volume" in quote_data[0] else "N/A"
+            volatility = profile_data[0]["volatility"] if profile_data and "volatility" in profile_data[0] else "N/A"
 
             summary = (
                 f"Stock Analysis for {stock_symbol} (via {source}):\n"
                 f"- Price: ${price:.2f}\n"
                 f"- Trend: {trend}\n"
-                f"- Recommendation: {recommendation}"
+                f"- Recommendation: {recommendation}\n"
+                f"- Market Cap: ${market_cap:,} (if available)"
             )
 
             details = (
-                f"Additional Info for {stock_symbol}:\n"
+                f"Detailed Info for {stock_symbol}:\n\n"
                 f"- Change Percentage (24h): {change_percent:.2f}%\n"
+                f"- Volume (24h): {volume:,}\n"
+                f"- Volatility: {volatility}% (if available)\n"
                 f"- Source: Financial Modeling Prep (FMP)\n"
-                f"- Note: Recommendations are based on 24-hour change percentage."
             )
+            if news_data:
+                latest_news = news_data[0]
+                details += (
+                    f"\nRecent News:\n"
+                    f"- Title: {latest_news['title']}\n"
+                    f"- Published: {latest_news['publishedDate']}\n"
+                    f"- Summary: {latest_news['text'][:200]}...\n"
+                )
+            else:
+                details += "\nRecent News: Not available.\n"
+            details += "- Note: Recommendations are based on 24-hour change percentage."
 
             if "price" in message_lower:
                 summary = f"Stock Price for {stock_symbol} (via {source}): ${price:.2f}"
@@ -123,19 +152,31 @@ def crypto_analysis_tool():
                 change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
                 trend = "upward" if change_percent_24h > 0 else "downward" if change_percent_24h < 0 else "stable"
                 recommendation = "Buy" if change_percent_24h > 2 else "Sell" if change_percent_24h < -2 else "Hold"
+                market_cap = data["market_data"]["market_cap"]["usd"]
+                volume_24h = data["market_data"]["total_volume"]["usd"]
+
+                # Fetch overall trend (e.g., 7-day change)
+                change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
+                overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
+
+                # Fetch recent news (CoinGecko doesn't provide news directly, so we'll use a placeholder)
+                news_placeholder = "Recent news not available via CoinGecko API. Consider checking a news aggregator like CryptoCompare for updates."
 
                 summary = (
                     f"Crypto Analysis for {crypto_name.capitalize()}:\n"
                     f"- Price: ${price:.2f}\n"
-                    f"- Trend: {trend}\n"
-                    f"- Recommendation: {recommendation}"
+                    f"- Trend (24h): {trend}\n"
+                    f"- Recommendation: {recommendation}\n"
+                    f"- Market Cap: ${market_cap:,}"
                 )
 
                 details = (
-                    f"Detailed Info for {crypto_name.capitalize()}:\n"
+                    f"Detailed Info for {crypto_name.capitalize()}:\n\n"
                     f"- Change Percentage (24h): {change_percent_24h:.2f}%\n"
+                    f"- Volume (24h): ${volume_24h:,}\n"
+                    f"- Overall Trend (7d): {overall_trend} ({change_percent_7d:.2f}%)\n"
                     f"- Source: CoinGecko\n"
-                    f"- Note: Recommendations are based on 24-hour price change."
+                    f"\nRecent News:\n- {news_placeholder}\n"
                 )
 
                 if "price" in message_lower:
