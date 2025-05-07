@@ -43,7 +43,7 @@ def stock_analysis_tool():
             if not quote_data or "error" in quote_data:
                 return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol (e.g., AAPL, TSLA) or try again later."}
 
-            # Fetch profile data for market cap and volume
+            # Fetch profile data for market cap and volatility
             profile_url = f"https://financialmodelingprep.com/api/v3/profile/{stock_symbol}?apikey={fmp_api_key}"
             profile_response = requests.get(profile_url)
             profile_data = profile_response.json()
@@ -54,28 +54,24 @@ def stock_analysis_tool():
             news_data = news_response.json()
 
             price = float(quote_data[0]["price"])
-            change_percent = float(quote_data[0]["changesPercentage"])
-            trend = "upward" if change_percent > 0 else "downward" if change_percent < 0 else "stable"
-            recommendation = "Buy" if change_percent > 2 else "Sell" if change_percent < -2 else "Hold"
+            change_percent_24h = float(quote_data[0]["changesPercentage"])
+            volume_24h = quote_data[0]["volume"] if "volume" in quote_data[0] else "N/A"
             source = "FMP"
 
             # Additional trader-relevant details
             market_cap = profile_data[0]["mktCap"] if profile_data else "N/A"
-            volume = quote_data[0]["volume"] if "volume" in quote_data[0] else "N/A"
             volatility = profile_data[0]["volatility"] if profile_data and "volatility" in profile_data[0] else "N/A"
 
             summary = (
-                f"Stock Analysis for {stock_symbol} (via {source}):\n"
+                f"Stock Update for {stock_symbol} (via {source}):\n"
                 f"- Price: ${price:.2f}\n"
-                f"- Trend: {trend}\n"
-                f"- Recommendation: {recommendation}\n"
-                f"- Market Cap: ${market_cap:,} (if available)"
+                f"- Volume (24hr): {volume_24h:,}\n"
+                f"- Change (24hr): {change_percent_24h:.2f}%"
             )
 
             details = (
                 f"Detailed Info for {stock_symbol}:\n\n"
-                f"- Change Percentage (24h): {change_percent:.2f}%\n"
-                f"- Volume (24h): {volume:,}\n"
+                f"- Market Cap: ${market_cap:,} (if available)\n"
                 f"- Volatility: {volatility}% (if available)\n"
                 f"- Source: Financial Modeling Prep (FMP)\n"
             )
@@ -89,14 +85,13 @@ def stock_analysis_tool():
                 )
             else:
                 details += "\nRecent News: Not available.\n"
-            details += "- Note: Recommendations are based on 24-hour change percentage."
 
             if "price" in message_lower:
                 summary = f"Stock Price for {stock_symbol} (via {source}): ${price:.2f}"
-            elif "trend" in message_lower:
-                summary = f"Stock Trend for {stock_symbol} (via {source}): {trend}"
-            elif "recommendation" in message_lower:
-                summary = f"Stock Recommendation for {stock_symbol} (via {source}): {recommendation}"
+            elif "volume" in message_lower:
+                summary = f"Stock Volume (24hr) for {stock_symbol} (via {source}): {volume_24h:,}"
+            elif "change" in message_lower or "trajectory" in message_lower:
+                summary = f"Stock Change (24hr) for {stock_symbol} (via {source}): {change_percent_24h:.2f}%"
 
             return {"summary": summary, "details": details}
 
@@ -105,7 +100,7 @@ def stock_analysis_tool():
 
     return {
         "tool_name": "stock_analysis",
-        "tool_description": "Analyze a specific stock's price, trend, and recommendation",
+        "tool_description": "Provide a basic update and analysis of a stock including price, volume, and change",
         "function": analyze_stock
     }
 
@@ -227,8 +222,8 @@ def crypto_analysis_tool():
             if coindesk_price:
                 summary += f" (CoinDesk: ${coindesk_price:.2f})"
             summary += (
-                f"\n- Volume (24h): ${volume_24h:,}\n"
-                f"- Trajectory (24h): {change_percent_24h:.2f}%"
+                f"\n- Volume (24hr): ${volume_24h:,}\n"
+                f"- Change (24hr): {change_percent_24h:.2f}%"
             )
 
             details = (
@@ -246,10 +241,10 @@ def crypto_analysis_tool():
                 summary = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
                 if coindesk_price:
                     summary += f" (CoinDesk: ${coindesk_price:.2f})"
-            elif "trend" in message_lower:
-                summary = f"Crypto Trajectory (24h) for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
             elif "volume" in message_lower:
-                summary = f"Crypto Volume (24h) for {crypto_name.capitalize()}: ${volume_24h:,}"
+                summary = f"Crypto Volume (24hr) for {crypto_name.capitalize()}: ${volume_24h:,}"
+            elif "change" in message_lower or "trajectory" in message_lower:
+                summary = f"Crypto Change (24hr) for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
 
             result = {"summary": summary, "details": details}
             crypto_cache[cache_key] = result
@@ -260,7 +255,7 @@ def crypto_analysis_tool():
 
     return {
         "tool_name": "crypto_analysis",
-        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, volume, and trajectory",
+        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, volume, and change",
         "function": analyze_crypto
     }
 

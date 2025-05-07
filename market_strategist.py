@@ -32,21 +32,30 @@ class MarketStrategist:
                 crypto_symbol = word_clean.replace("$", "")
                 break
 
+        # Check for crypto names (e.g., Bitcoin, Ethereum, Cardano)
+        crypto_name = None
+        for word in words:
+            word_clean = word.strip("?.!,").lower()
+            # Broaden the check to include any word that might be a crypto name
+            if word_clean in message_lower and len(word_clean) > 2:  # Avoid short words that might be ambiguous
+                crypto_name = word_clean
+                break
+
         for tool in self.tools:
             tool_name = tool["tool_name"]
-            if is_market_related or stock_symbol or crypto_symbol:
-                # Route to crypto analysis if crypto keywords or symbols are present
-                if tool_name == "crypto_analysis" and (crypto_symbol or "crypto" in message_lower or "bitcoin" in message_lower or "ethereum" in message_lower):
+            if is_market_related or stock_symbol or crypto_symbol or crypto_name:
+                # Prioritize crypto analysis if crypto keywords, symbols, or names are present
+                if tool_name == "crypto_analysis" and (crypto_symbol or crypto_name or "crypto" in message_lower or "bitcoin" in message_lower or "ethereum" in message_lower):
                     return tool["function"](message)
                 # Route to stock analysis if stock keywords or symbols are present
                 elif tool_name == "stock_analysis" and (stock_symbol or "stock" in message_lower or "apple" in message_lower or "tesla" in message_lower):
                     return tool["function"](message)
                 elif tool_name == "market_news" and "news" in message_lower and "market" in message_lower:
                     return tool["function"](message)
-            # Fallback to general query tool for non-market queries
-            elif tool_name == "general_query":
+            # Fallback to general query tool only if no market-related terms are found
+            elif tool_name == "general_query" and not (is_market_related or stock_symbol or crypto_symbol or crypto_name):
                 return tool["function"](message)
 
-        if is_market_related or stock_symbol or crypto_symbol:
+        if is_market_related or stock_symbol or crypto_symbol or crypto_name:
             return {"summary": f"{self.name} analyzed: {message} (no specific tool used).", "details": "Please try a specific stock (e.g., Apple, TSLA) or crypto (e.g., Bitcoin, ETH)."}
         return {"summary": "I couldn't process this query.", "details": "Please ask about a specific stock or crypto, or try a general question."}
