@@ -1,6 +1,7 @@
 import requests
 import time
 import os
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from anthropic import Anthropic, AnthropicError
 from cachetools import TTLCache
@@ -158,58 +159,108 @@ def crypto_analysis_tool():
             if not crypto_id:
                 return {"summary": "Error: Could not identify cryptocurrency.", "details": "Please specify a valid crypto name or symbol (e.g., Bitcoin, ETH)."}
 
+            # Fetch data from CoinGecko
             url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}?localization=false&tickers=false&market_data=true"
             response = requests.get(url)
             data = response.json()
             if "error" in data:
                 return {"summary": f"API Error: {data['error']}", "details": "Failed to fetch data from CoinGecko."}
-            if "market_data" in data:
-                price = float(data["market_data"]["current_price"]["usd"])
-                change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
-                volume_24h = data["market_data"]["total_volume"]["usd"]
-                # Holders data isn't directly available via CoinGecko; we'll note this limitation
-                holders = "Not available via CoinGecko API"
 
-                # Fetch overall trend (e.g., 7-day change)
-                change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
-                overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
+            if "market_data" not in data:
+                return {"summary": f"Crypto data not found for {crypto_name}.", "details": "Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth')."}
 
-                # Fetch recent news (CoinGecko doesn't provide news directly, so we'll use a placeholder)
-                news_placeholder = "Recent news not available via CoinGecko API. Consider checking a news aggregator like CryptoCompare for updates."
+            price = float(data["market_data"]["current_price"]["usd"])
+            change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
+            volume_24h = data["market_data"]["total_volume"]["usd"]
 
-                summary = (
-                    f"Crypto Update for {crypto_name.capitalize()}:\n"
-                    f"- Price: ${price:.2f}\n"
-                    f"- Volume (24h): ${volume_24h:,}\n"
-                    f"- Holders: {holders}\n"
-                    f"- Trajectory (24h): {change_percent_24h:.2f}%"
-                )
+            # Fetch overall trend (e.g., 7-day change)
+            change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
+            overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
-                details = (
-                    f"Detailed Info for {crypto_name.capitalize()}:\n\n"
-                    f"- Overall Trend (7d): {overall_trend} ({change_percent_7d:.2f}%)\n"
-                    f"- Source: CoinGecko\n"
-                    f"\nRecent News:\n- {news_placeholder}\n"
-                )
+            # Fetch recent news using CryptoCompare
+            cryptocompare_api_key = os.getenv("CRYPTOCOMPARE_API_KEY")
+            news_url = f"https://min-api.cryptocompare.com/data/v2/news/?lang=EN&api_key={cryptocompare_api_key}"
+            news_response = requests.get(news_url)
+            news_data = news_response.json()
 
-                if "price" in message_lower:
-                    summary = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
-                elif "trend" in message_lower:
-                    summary = f"Crypto Trajectory (24h) for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
-                elif "volume" in message_lower:
-                    summary = f"Crypto Volume (24h) for {crypto_name.capitalize()}: ${volume_24h:,}"
+            news_summary = "No new updates that I see at the moment...check back later!"
+            if news_data and news_data.get("Data"):
+                for article in news_data["Data"][:1]:  # Take the most recent article
+                    if crypto_name.lower() in article["title"].lower() or crypto_name.lower() in article["body"].lower():
+                        news_summary = (
+                            f"- Title: {article['title']}\n"
+                            f"- Published: {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(article['published_on']))}\n"
+                            f"- Source: {article['source']}\n"
+                            f"- Summary: {article['body'][:200]}..."
+                        )
+                        break
 
-                result = {"summary": summary, "details": details}
-                crypto_cache[cache_key] = result
-                return result
-            return {"summary": f"Crypto data not found for {crypto_name}.", "details": "Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth')."}
+            # If the crypto is Bitcoin, fetch additional data from CoinDesk
+            coindesk_price = None
+            historical_trend_30d = "N/A"
+            if crypto_id == "bitcoin":
+                # Fetch current price from CoinDesk
+                coindesk_url = "https://api.coindesk.com/v1/bpi/currentprice/USD.json"
+                coindesk_response = requests.get(coindesk_url)
+                coindesk_data = coindesk_response.json()
+                if "bpi" in coindesk_data and "USD" in coindesk_data["bpi"]:
+                    coindesk_price = float(coindesk_data["bpi"]["USD"]["rate_float"])
+
+                # Fetch historical price (30 days ago) from CoinDesk
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=30)
+                historical_url = f"https://api.coindesk.com/v1/bpi/historical/close.json?start={start_date.strftime('%Y-%m-%d')}&end={end_date.strftime('%Y-%m-%d')}"
+                historical_response = requests.get(historical_url)
+                historical_data = historical_response.json()
+                if "bpi" in historical_data:
+                    prices = list(historical_data["bpi"].values())
+                    if len(prices) >= 2:
+                        price_30d_ago = float(prices[0])
+                        price_recent = float(prices[-1])
+                        change_30d = ((price_recent - price_30d_ago) / price_30d_ago) * 100
+                        historical_trend_30d = f"{change_30d:.2f}% ({'upward' if change_30d > 0 else 'downward' if change_30d < 0 else 'stable'})"
+
+            summary = (
+                f"Crypto Update for {crypto_name.capitalize()}:\n"
+                f"- Price: ${price:.2f}"
+            )
+            if coindesk_price:
+                summary += f" (CoinDesk: ${coindesk_price:.2f})"
+            summary += (
+                f"\n- Volume (24h): ${volume_24h:,}\n"
+                f"- Trajectory (24h): {change_percent_24h:.2f}%"
+            )
+
+            details = (
+                f"Detailed Info for {crypto_name.capitalize()}:\n\n"
+                f"- Overall Trend (7d): {overall_trend} ({change_percent_7d:.2f}%)\n"
+            )
+            if historical_trend_30d != "N/A":
+                details += f"- Historical Trend (30d): {historical_trend_30d}\n"
+            details += (
+                f"- Source: CoinGecko (price, volume), CoinDesk (Bitcoin price, historical)\n"
+                f"\nRecent News:\n{news_summary}\n"
+            )
+
+            if "price" in message_lower:
+                summary = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
+                if coindesk_price:
+                    summary += f" (CoinDesk: ${coindesk_price:.2f})"
+            elif "trend" in message_lower:
+                summary = f"Crypto Trajectory (24h) for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
+            elif "volume" in message_lower:
+                summary = f"Crypto Volume (24h) for {crypto_name.capitalize()}: ${volume_24h:,}"
+
+            result = {"summary": summary, "details": details}
+            crypto_cache[cache_key] = result
+            return result
 
         except Exception as e:
             return {"summary": "Error fetching crypto data.", "details": str(e)}
 
     return {
         "tool_name": "crypto_analysis",
-        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, volume, holders, and trajectory",
+        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, volume, and trajectory",
         "function": analyze_crypto
     }
 
