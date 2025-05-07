@@ -43,10 +43,17 @@ def stock_analysis_tool():
             if not quote_data or "error" in quote_data:
                 return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol (e.g., AAPL, TSLA) or try again later."}
 
-            # Fetch profile data for market cap and volatility
+            # Fetch profile data for market cap and historical trend
             profile_url = f"https://financialmodelingprep.com/api/v3/profile/{stock_symbol}?apikey={fmp_api_key}"
             profile_response = requests.get(profile_url)
             profile_data = profile_response.json()
+
+            # Fetch historical data for 7-day trend
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=7)
+            historical_url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{stock_symbol}?from={start_date.strftime('%Y-%m-%d')}&to={end_date.strftime('%Y-%m-%d')}&apikey={fmp_api_key}"
+            historical_response = requests.get(historical_url)
+            historical_data = historical_response.json()
 
             # Fetch recent news
             news_url = f"https://financialmodelingprep.com/api/v3/stock_news?tickers={stock_symbol}&limit=1&apikey={fmp_api_key}"
@@ -56,42 +63,49 @@ def stock_analysis_tool():
             price = float(quote_data[0]["price"])
             change_percent_24h = float(quote_data[0]["changesPercentage"])
             volume_24h = quote_data[0]["volume"] if "volume" in quote_data[0] else "N/A"
-            source = "FMP"
-
-            # Additional trader-relevant details
             market_cap = profile_data[0]["mktCap"] if profile_data else "N/A"
-            volatility = profile_data[0]["volatility"] if profile_data and "volatility" in profile_data[0] else "N/A"
+
+            # Calculate 7-day trend
+            change_percent_7d = "N/A"
+            trend_7d = "N/A"
+            if historical_data and "historical" in historical_data and len(historical_data["historical"]) >= 2:
+                price_7d_ago = float(historical_data["historical"][-1]["close"])
+                price_recent = float(historical_data["historical"][0]["close"])
+                change_percent_7d = ((price_recent - price_7d_ago) / price_7d_ago) * 100
+                trend_7d = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
             summary = (
-                f"Stock Update for {stock_symbol} (via {source}):\n"
+                f"Stock Update for {stock_symbol}:\n"
                 f"- Price: ${price:.2f}\n"
-                f"- Volume (24hr): {volume_24h:,}\n"
-                f"- Change (24hr): {change_percent_24h:.2f}%"
+                f"- Market Cap: ${market_cap:,} (if available)\n"
+                f"- Volume (24h): {volume_24h:,}\n"
+                f"- 24h Change: {change_percent_24h:.2f}%\n"
+                f"- 7d Trend: {trend_7d} ({change_percent_7d:.2f}% if available)"
             )
 
             details = (
                 f"Detailed Info for {stock_symbol}:\n\n"
-                f"- Market Cap: ${market_cap:,} (if available)\n"
-                f"- Volatility: {volatility}% (if available)\n"
-                f"- Source: Financial Modeling Prep (FMP)\n"
             )
             if news_data:
                 latest_news = news_data[0]
                 details += (
-                    f"\nRecent News:\n"
+                    f"Recent News:\n"
                     f"- Title: {latest_news['title']}\n"
                     f"- Published: {latest_news['publishedDate']}\n"
                     f"- Summary: {latest_news['text'][:200]}...\n"
+                    f"- Source: [Read More]({latest_news['url']})\n"
                 )
             else:
                 details += "\nRecent News: Not available.\n"
 
             if "price" in message_lower:
-                summary = f"Stock Price for {stock_symbol} (via {source}): ${price:.2f}"
+                summary = f"Stock Price for {stock_symbol}: ${price:.2f}"
             elif "volume" in message_lower:
-                summary = f"Stock Volume (24hr) for {stock_symbol} (via {source}): {volume_24h:,}"
+                summary = f"Stock Volume (24h) for {stock_symbol}: {volume_24h:,}"
             elif "change" in message_lower or "trajectory" in message_lower:
-                summary = f"Stock Change (24hr) for {stock_symbol} (via {source}): {change_percent_24h:.2f}%"
+                summary = f"Stock 24h Change for {stock_symbol}: {change_percent_24h:.2f}%"
+            elif "trend" in message_lower:
+                summary = f"Stock 7d Trend for {stock_symbol}: {trend_7d} ({change_percent_7d:.2f}% if available)"
 
             return {"summary": summary, "details": details}
 
@@ -100,7 +114,7 @@ def stock_analysis_tool():
 
     return {
         "tool_name": "stock_analysis",
-        "tool_description": "Provide a basic update and analysis of a stock including price, volume, and change",
+        "tool_description": "Provide a basic update and analysis of a stock including price, market cap, volume, and change",
         "function": analyze_stock
     }
 
@@ -165,6 +179,7 @@ def crypto_analysis_tool():
                 return {"summary": f"Crypto data not found for {crypto_name}.", "details": "Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth')."}
 
             price = float(data["market_data"]["current_price"]["usd"])
+            market_cap = data["market_data"]["market_cap"]["usd"]
             change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
             volume_24h = data["market_data"]["total_volume"]["usd"]
 
@@ -186,7 +201,8 @@ def crypto_analysis_tool():
                             f"- Title: {article['title']}\n"
                             f"- Published: {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(article['published_on']))}\n"
                             f"- Source: {article['source']}\n"
-                            f"- Summary: {article['body'][:200]}..."
+                            f"- Summary: {article['body'][:200]}...\n"
+                            f"- Source: [Read More]({article['url']})\n"
                         )
                         break
 
@@ -222,18 +238,18 @@ def crypto_analysis_tool():
             if coindesk_price:
                 summary += f" (CoinDesk: ${coindesk_price:.2f})"
             summary += (
-                f"\n- Volume (24hr): ${volume_24h:,}\n"
-                f"- Change (24hr): {change_percent_24h:.2f}%"
+                f"\n- Market Cap: ${market_cap:,}\n"
+                f"- Volume (24h): ${volume_24h:,}\n"
+                f"- 24h Change: {change_percent_24h:.2f}%\n"
+                f"- 7d Trend: {overall_trend} ({change_percent_7d:.2f}% if available)"
             )
 
             details = (
                 f"Detailed Info for {crypto_name.capitalize()}:\n\n"
-                f"- Overall Trend (7d): {overall_trend} ({change_percent_7d:.2f}%)\n"
             )
             if historical_trend_30d != "N/A":
                 details += f"- Historical Trend (30d): {historical_trend_30d}\n"
             details += (
-                f"- Source: CoinGecko (price, volume), CoinDesk (Bitcoin price, historical)\n"
                 f"\nRecent News:\n{news_summary}\n"
             )
 
@@ -242,9 +258,11 @@ def crypto_analysis_tool():
                 if coindesk_price:
                     summary += f" (CoinDesk: ${coindesk_price:.2f})"
             elif "volume" in message_lower:
-                summary = f"Crypto Volume (24hr) for {crypto_name.capitalize()}: ${volume_24h:,}"
+                summary = f"Crypto Volume (24h) for {crypto_name.capitalize()}: ${volume_24h:,}"
             elif "change" in message_lower or "trajectory" in message_lower:
-                summary = f"Crypto Change (24hr) for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
+                summary = f"Crypto 24h Change for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
+            elif "trend" in message_lower:
+                summary = f"Crypto 7d Trend for {crypto_name.capitalize()}: {overall_trend} ({change_percent_7d:.2f}% if available)"
 
             result = {"summary": summary, "details": details}
             crypto_cache[cache_key] = result
@@ -255,7 +273,7 @@ def crypto_analysis_tool():
 
     return {
         "tool_name": "crypto_analysis",
-        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, volume, and change",
+        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, market cap, volume, and change",
         "function": analyze_crypto
     }
 
@@ -281,7 +299,10 @@ def market_news_tool():
                 f"- Title: {latest_news['title']}\n"
                 f"- Published: {latest_news['publishedDate']}"
             )
-            details = f"Details: {latest_news['text'][:200]}..."
+            details = (
+                f"- Summary: {latest_news['text'][:200]}...\n"
+                f"- Source: [Read More]({latest_news['url']})\n"
+            )
             return {"summary": summary, "details": details}
 
         except Exception as e:
