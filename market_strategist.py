@@ -14,37 +14,39 @@ class MarketStrategist:
         is_market_related = any(keyword in message.lower() for keyword in market_keywords)
 
         message_lower = message.lower()
-        crypto_names = ["bitcoin", "ethereum", "solana", "polkadot", "avalanche", "chainlink", "injective", "sui"]
-        stock_names = ["apple", "google", "microsoft", "amazon", "tesla"]
 
-        crypto_match = next((crypto for crypto in crypto_names if crypto in message_lower), None)
-        stock_match = next((stock for stock in stock_names if stock in message_lower), None)
-
-        # Check for stock symbols (e.g., TSLA, AAPL)
+        # Check for potential stock symbols (short alphabetic strings, e.g., TSLA, AAPL)
         stock_symbol = None
         words = message_lower.split()
         for word in words:
             word_clean = word.strip("?.!,").upper()
-            if len(word_clean) <= 5 and word_clean.isalpha():  # Likely a stock symbol
+            if len(word_clean) <= 5 and word_clean.isalpha():
                 stock_symbol = word_clean
+                break
+
+        # Check for potential crypto symbols (e.g., $BTC, ETH)
+        crypto_symbol = None
+        for word in words:
+            word_clean = word.strip("?.!,").lower()
+            if (word_clean.startswith("$") and len(word_clean) <= 6) or (len(word_clean) <= 5 and word_clean.isalpha()):
+                crypto_symbol = word_clean.replace("$", "")
                 break
 
         for tool in self.tools:
             tool_name = tool["tool_name"]
-            if is_market_related or crypto_match or stock_match or stock_symbol:
-                if crypto_match and tool_name == "crypto_analysis":
-                    return tool["function"](f"Analyze {crypto_match} {message_lower}")
-                elif (stock_match or stock_symbol) and tool_name == "stock_analysis":
-                    return tool["function"](f"Analyze stock {stock_symbol if stock_symbol else stock_match} {message_lower}")
-                elif tool_name == "stock_analysis" and ("stock" in message_lower or "price" in message_lower or "trend" in message_lower or "recommendation" in message_lower) and not crypto_match:
+            if is_market_related or stock_symbol or crypto_symbol:
+                # Route to crypto analysis if crypto keywords or symbols are present
+                if tool_name == "crypto_analysis" and (crypto_symbol or "crypto" in message_lower or "bitcoin" in message_lower or "ethereum" in message_lower):
                     return tool["function"](message)
-                elif tool_name == "crypto_analysis" and ("crypto" in message_lower or "price" in message_lower or "trend" in message_lower or "recommendation" in message_lower or "bitcoin" in message_lower or "ethereum" in message_lower):
+                # Route to stock analysis if stock keywords or symbols are present
+                elif tool_name == "stock_analysis" and (stock_symbol or "stock" in message_lower or "apple" in message_lower or "tesla" in message_lower):
                     return tool["function"](message)
                 elif tool_name == "market_news" and "news" in message_lower and "market" in message_lower:
                     return tool["function"](message)
+            # Fallback to general query tool for non-market queries
             elif tool_name == "general_query":
                 return tool["function"](message)
 
-        if is_market_related or crypto_match or stock_match or stock_symbol:
-            return {"summary": f"{self.name} analyzed: {message} (no specific tool used).", "details": "Please try a specific stock (e.g., Apple, TSLA) or crypto (e.g., Bitcoin, Ethereum)."}
+        if is_market_related or stock_symbol or crypto_symbol:
+            return {"summary": f"{self.name} analyzed: {message} (no specific tool used).", "details": "Please try a specific stock (e.g., Apple, TSLA) or crypto (e.g., Bitcoin, ETH)."}
         return {"summary": "I couldn't process this query.", "details": "Please ask about a specific stock or crypto, or try a general question."}

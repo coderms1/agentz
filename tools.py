@@ -16,32 +16,19 @@ def stock_analysis_tool():
         try:
             time.sleep(1)
             message_lower = message.lower()
-            stock_name = None
-            stock_names = ["apple", "google", "microsoft", "amazon", "tesla"]
-            for name in stock_names:
-                if name in message_lower:
-                    stock_name = name
+
+            # Extract stock name or symbol from the message
+            stock_symbol = None
+            words = message_lower.split()
+            for word in words:
+                word_clean = word.strip("?.!,").upper()
+                if len(word_clean) <= 5 and word_clean.isalpha():  # Likely a stock symbol
+                    stock_symbol = word_clean
                     break
 
-            if not stock_name:
-                words = message_lower.split()
-                for word in words:
-                    word_clean = word.strip("?.!,").upper()
-                    if len(word_clean) <= 5 and word_clean.isalpha():
-                        stock_name = word_clean
-                        break
-
-            if not stock_name:
-                return {"summary": "Error: Could not identify stock name.", "details": "Please specify a stock like 'Apple' or a symbol like 'AAPL'."}
-
-            stock_mapping = {
-                "apple": "AAPL",
-                "google": "GOOGL",
-                "microsoft": "MSFT",
-                "amazon": "AMZN",
-                "tesla": "TSLA"
-            }
-            stock_symbol = stock_mapping.get(stock_name.lower(), stock_name.upper())
+            if not stock_symbol:
+                # Try to extract a stock name (fallback to words that might be company names)
+                stock_symbol = message_lower.split()[-1].upper()  # Take the last word as a potential symbol
 
             fmp_api_key = os.getenv("FMP_API_KEY")
             if not fmp_api_key:
@@ -53,7 +40,7 @@ def stock_analysis_tool():
             quote_data = quote_response.json()
 
             if not quote_data or "error" in quote_data:
-                return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol or try again later."}
+                return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol (e.g., AAPL, TSLA) or try again later."}
 
             # Fetch profile data for market cap and volume
             profile_url = f"https://financialmodelingprep.com/api/v3/profile/{stock_symbol}?apikey={fmp_api_key}"
@@ -132,12 +119,41 @@ def crypto_analysis_tool():
             coins_response = requests.get("https://api.coingecko.com/api/v3/coins/list")
             coins = coins_response.json()
 
+            # Explicit mapping of symbols to CoinGecko IDs for priority coins
+            symbol_to_id = {
+                "btc": "bitcoin",
+                "eth": "ethereum",
+                "sol": "solana",
+                "dot": "polkadot",
+                "avax": "avalanche",
+                "link": "chainlink",
+                "inj": "injective",
+                "sui": "sui",
+                "ada": "cardano",
+                "xrp": "ripple",
+                "doge": "dogecoin"
+            }
+
             crypto_id = None
-            for coin in coins:
-                if coin["name"].lower() in message_lower or coin["symbol"].lower() in message_lower:
-                    crypto_id = coin["id"]
-                    crypto_name = coin["name"]
+            crypto_name = None
+            # First, check for explicit symbol matches
+            for symbol, coin_id in symbol_to_id.items():
+                if symbol in message_lower or f"${symbol}" in message_lower:
+                    crypto_id = coin_id
+                    # Find the name from the coins list
+                    for coin in coins:
+                        if coin["id"] == crypto_id:
+                            crypto_name = coin["name"]
+                            break
                     break
+
+            # If no explicit match, fall back to name or symbol search
+            if not crypto_id:
+                for coin in coins:
+                    if coin["name"].lower() in message_lower or coin["symbol"].lower() in message_lower:
+                        crypto_id = coin["id"]
+                        crypto_name = coin["name"]
+                        break
 
             if not crypto_id:
                 return {"summary": "Error: Could not identify cryptocurrency.", "details": "Please specify a valid crypto name or symbol (e.g., Bitcoin, ETH)."}
@@ -150,10 +166,9 @@ def crypto_analysis_tool():
             if "market_data" in data:
                 price = float(data["market_data"]["current_price"]["usd"])
                 change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
-                trend = "upward" if change_percent_24h > 0 else "downward" if change_percent_24h < 0 else "stable"
-                recommendation = "Buy" if change_percent_24h > 2 else "Sell" if change_percent_24h < -2 else "Hold"
-                market_cap = data["market_data"]["market_cap"]["usd"]
                 volume_24h = data["market_data"]["total_volume"]["usd"]
+                # Holders data isn't directly available via CoinGecko; we'll note this limitation
+                holders = "Not available via CoinGecko API"
 
                 # Fetch overall trend (e.g., 7-day change)
                 change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
@@ -163,17 +178,15 @@ def crypto_analysis_tool():
                 news_placeholder = "Recent news not available via CoinGecko API. Consider checking a news aggregator like CryptoCompare for updates."
 
                 summary = (
-                    f"Crypto Analysis for {crypto_name.capitalize()}:\n"
+                    f"Crypto Update for {crypto_name.capitalize()}:\n"
                     f"- Price: ${price:.2f}\n"
-                    f"- Trend (24h): {trend}\n"
-                    f"- Recommendation: {recommendation}\n"
-                    f"- Market Cap: ${market_cap:,}"
+                    f"- Volume (24h): ${volume_24h:,}\n"
+                    f"- Holders: {holders}\n"
+                    f"- Trajectory (24h): {change_percent_24h:.2f}%"
                 )
 
                 details = (
                     f"Detailed Info for {crypto_name.capitalize()}:\n\n"
-                    f"- Change Percentage (24h): {change_percent_24h:.2f}%\n"
-                    f"- Volume (24h): ${volume_24h:,}\n"
                     f"- Overall Trend (7d): {overall_trend} ({change_percent_7d:.2f}%)\n"
                     f"- Source: CoinGecko\n"
                     f"\nRecent News:\n- {news_placeholder}\n"
@@ -182,9 +195,9 @@ def crypto_analysis_tool():
                 if "price" in message_lower:
                     summary = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
                 elif "trend" in message_lower:
-                    summary = f"Crypto Trend for {crypto_name.capitalize()}: {trend}"
-                elif "recommendation" in message_lower:
-                    summary = f"Crypto Recommendation for {crypto_name.capitalize()}: {recommendation}"
+                    summary = f"Crypto Trajectory (24h) for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
+                elif "volume" in message_lower:
+                    summary = f"Crypto Volume (24h) for {crypto_name.capitalize()}: ${volume_24h:,}"
 
                 result = {"summary": summary, "details": details}
                 crypto_cache[cache_key] = result
@@ -196,7 +209,7 @@ def crypto_analysis_tool():
 
     return {
         "tool_name": "crypto_analysis",
-        "tool_description": "Analyze a specific cryptocurrency's price, trend, and recommendation",
+        "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, volume, holders, and trajectory",
         "function": analyze_crypto
     }
 
