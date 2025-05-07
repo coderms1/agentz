@@ -11,13 +11,11 @@ load_dotenv()
 # Cache for crypto analysis (5-minute TTL, max 100 items)
 crypto_cache = TTLCache(maxsize=100, ttl=300)
 
-
 def stock_analysis_tool():
     def analyze_stock(message):
         try:
             time.sleep(1)  # Add 1-second delay to avoid rate limits
             message_lower = message.lower()
-            # Extract stock name from the message
             stock_name = None
             stock_names = ["apple", "google", "microsoft", "amazon", "tesla"]
             for name in stock_names:
@@ -26,18 +24,16 @@ def stock_analysis_tool():
                     break
 
             if not stock_name:
-                # Try to extract a symbol directly (e.g., "AAPL")
                 words = message_lower.split()
                 for word in words:
                     word_clean = word.strip("?.!,").upper()
-                    if len(word_clean) <= 5 and word_clean.isalpha():  # Likely a stock symbol
+                    if len(word_clean) <= 5 and word_clean.isalpha():
                         stock_name = word_clean
                         break
 
             if not stock_name:
-                return "Error: Could not identify stock name. Please specify a stock like 'Apple' or a symbol like 'AAPL'."
+                return {"summary": "Error: Could not identify stock name.", "details": "Please specify a stock like 'Apple' or a symbol like 'AAPL'."}
 
-            # Map common stock names to symbols
             stock_mapping = {
                 "apple": "AAPL",
                 "google": "GOOGL",
@@ -47,44 +43,54 @@ def stock_analysis_tool():
             }
             stock_symbol = stock_mapping.get(stock_name.lower(), stock_name.upper())
 
-            # Try Financial Modeling Prep (FMP) first
             fmp_api_key = os.getenv("FMP_API_KEY")
             if not fmp_api_key:
-                return "Error: FMP API key not found in environment variables."
+                return {"summary": "Error: FMP API key not found.", "details": "FMP API key is missing in environment variables."}
 
             fmp_url = f"https://financialmodelingprep.com/api/v3/quote/{stock_symbol}?apikey={fmp_api_key}"
             fmp_response = requests.get(fmp_url)
             fmp_data = fmp_response.json()
 
             if not fmp_data or "error" in fmp_data:
-                return f"No stock data found for {stock_symbol} using FMP. Please check the stock symbol or try again later."
+                return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol or try again later."}
 
-            # Process FMP response
             price = float(fmp_data[0]["price"])
             change_percent = float(fmp_data[0]["changesPercentage"])
             trend = "upward" if change_percent > 0 else "downward" if change_percent < 0 else "stable"
             recommendation = "Buy" if change_percent > 2 else "Sell" if change_percent < -2 else "Hold"
             source = "FMP"
 
-            # Handle follow-up questions
+            summary = (
+                f"Stock Analysis for {stock_symbol} (via {source}):\n"
+                f"- Price: ${price:.2f}\n"
+                f"- Trend: {trend}\n"
+                f"- Recommendation: {recommendation}"
+            )
+
+            details = (
+                f"Additional Info for {stock_symbol}:\n"
+                f"- Change Percentage (24h): {change_percent:.2f}%\n"
+                f"- Source: Financial Modeling Prep (FMP)\n"
+                f"- Note: Recommendations are based on 24-hour change percentage."
+            )
+
             if "price" in message_lower:
-                return f"Stock Price for {stock_symbol} (via {source}): ${price:.2f}"
+                summary = f"Stock Price for {stock_symbol} (via {source}): ${price:.2f}"
             elif "trend" in message_lower:
-                return f"Stock Trend for {stock_symbol} (via {source}): {trend}"
+                summary = f"Stock Trend for {stock_symbol} (via {source}): {trend}"
             elif "recommendation" in message_lower:
-                return f"Stock Recommendation for {stock_symbol} (via {source}): {recommendation}"
-            else:
-                return f"Stock Analysis for {stock_symbol} (via {source}): Price: ${price:.2f}, Trend: {trend}, Recommendation: {recommendation}"
+                summary = f"Stock Recommendation for {stock_symbol} (via {source}): {recommendation}"
+
+            return {"summary": summary, "details": details}
 
         except Exception as e:
-            return f"Error fetching stock data: {str(e)}"
+            return {"summary": "Error fetching stock data.", "details": str(e)}
 
     return {
         "tool_name": "stock_analysis",
         "tool_description": "Analyze a specific stock's price, trend, and recommendation",
         "function": analyze_stock
     }
-
 
 def crypto_analysis_tool():
     def analyze_crypto(message):
@@ -94,11 +100,9 @@ def crypto_analysis_tool():
                 return crypto_cache[cache_key]
 
             message_lower = message.lower()
-            # Fetch the list of coins from CoinGecko
             coins_response = requests.get("https://api.coingecko.com/api/v3/coins/list")
             coins = coins_response.json()
 
-            # Find the crypto by name or symbol
             crypto_id = None
             for coin in coins:
                 if coin["name"].lower() in message_lower or coin["symbol"].lower() in message_lower:
@@ -107,34 +111,47 @@ def crypto_analysis_tool():
                     break
 
             if not crypto_id:
-                return "Error: Could not identify cryptocurrency. Please specify a valid crypto name or symbol (e.g., Bitcoin, ETH)."
+                return {"summary": "Error: Could not identify cryptocurrency.", "details": "Please specify a valid crypto name or symbol (e.g., Bitcoin, ETH)."}
 
             url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}?localization=false&tickers=false&market_data=true"
             response = requests.get(url)
             data = response.json()
             if "error" in data:
-                return f"API Error: {data['error']}"
+                return {"summary": f"API Error: {data['error']}", "details": "Failed to fetch data from CoinGecko."}
             if "market_data" in data:
                 price = float(data["market_data"]["current_price"]["usd"])
                 change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
                 trend = "upward" if change_percent_24h > 0 else "downward" if change_percent_24h < 0 else "stable"
                 recommendation = "Buy" if change_percent_24h > 2 else "Sell" if change_percent_24h < -2 else "Hold"
 
-                # Handle follow-up questions
-                if "price" in message_lower:
-                    response = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
-                elif "trend" in message_lower:
-                    response = f"Crypto Trend for {crypto_name.capitalize()}: {trend}"
-                elif "recommendation" in message_lower:
-                    response = f"Crypto Recommendation for {crypto_name.capitalize()}: {recommendation}"
-                else:
-                    response = f"Crypto Analysis for {crypto_name.capitalize()}: Price: ${price:.2f}, Trend: {trend}, Recommendation: {recommendation}"
+                summary = (
+                    f"Crypto Analysis for {crypto_name.capitalize()}:\n"
+                    f"- Price: ${price:.2f}\n"
+                    f"- Trend: {trend}\n"
+                    f"- Recommendation: {recommendation}"
+                )
 
-                crypto_cache[cache_key] = response
-                return response
-            return f"Crypto data not found for {crypto_name}. Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth'). Response: {data}"
+                details = (
+                    f"Detailed Info for {crypto_name.capitalize()}:\n"
+                    f"- Change Percentage (24h): {change_percent_24h:.2f}%\n"
+                    f"- Source: CoinGecko\n"
+                    f"- Note: Recommendations are based on 24-hour price change."
+                )
+
+                if "price" in message_lower:
+                    summary = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
+                elif "trend" in message_lower:
+                    summary = f"Crypto Trend for {crypto_name.capitalize()}: {trend}"
+                elif "recommendation" in message_lower:
+                    summary = f"Crypto Recommendation for {crypto_name.capitalize()}: {recommendation}"
+
+                result = {"summary": summary, "details": details}
+                crypto_cache[cache_key] = result
+                return result
+            return {"summary": f"Crypto data not found for {crypto_name}.", "details": "Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth')."}
+
         except Exception as e:
-            return f"Error fetching crypto data: {str(e)}"
+            return {"summary": "Error fetching crypto data.", "details": str(e)}
 
     return {
         "tool_name": "crypto_analysis",
@@ -142,28 +159,33 @@ def crypto_analysis_tool():
         "function": analyze_crypto
     }
 
-
 def market_news_tool():
     def summarize_news(message):
         try:
-            time.sleep(1)  # Add 1-second delay to avoid rate limits
+            time.sleep(1)
             topic = "stock market" if "stock" in message.lower() else "crypto market"
             fmp_api_key = os.getenv("FMP_API_KEY")
             if not fmp_api_key:
-                return "Error: FMP API key not found in environment variables."
+                return {"summary": "Error: FMP API key not found.", "details": "FMP API key is missing in environment variables."}
 
             url = f"https://financialmodelingprep.com/api/v3/stock_news?limit=1&apikey={fmp_api_key}"
             response = requests.get(url)
             data = response.json()
 
             if not data or "error" in data:
-                return f"No market news found. Response: {data}"
+                return {"summary": "No market news found.", "details": f"Response: {data}"}
 
             latest_news = data[0]
-            return f"Market News ({topic}): {latest_news['title']} - {latest_news['text'][:200]}... (Published: {latest_news['publishedDate']})"
+            summary = (
+                f"Market News ({topic}):\n"
+                f"- Title: {latest_news['title']}\n"
+                f"- Published: {latest_news['publishedDate']}"
+            )
+            details = f"Details: {latest_news['text'][:200]}..."
+            return {"summary": summary, "details": details}
 
         except Exception as e:
-            return f"Error fetching market news: {str(e)}"
+            return {"summary": "Error fetching market news.", "details": str(e)}
 
     return {
         "tool_name": "market_news",
@@ -171,13 +193,12 @@ def market_news_tool():
         "function": summarize_news
     }
 
-
 def general_query_tool():
     def handle_general_query(message):
         try:
             api_key = os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
-                return "Error: Anthropic API key not found in environment variables."
+                return {"summary": "Error: Anthropic API key not found.", "details": "Anthropic API key is missing in environment variables."}
 
             client = Anthropic(api_key=api_key)
             response = client.messages.create(
@@ -187,11 +208,13 @@ def general_query_tool():
                     {"role": "user", "content": message}
                 ]
             )
-            return f"General Query Response: {response.content[0].text}"
+            summary = f"General Query Response:\n- Answer: {response.content[0].text[:100]}..."
+            details = f"Full Answer: {response.content[0].text}"
+            return {"summary": summary, "details": details}
         except AnthropicError as e:
-            return f"Error processing general query: {str(e)}"
+            return {"summary": "Error processing general query.", "details": str(e)}
         except Exception as e:
-            return f"Unexpected error: {str(e)}"
+            return {"summary": "Unexpected error.", "details": str(e)}
 
     return {
         "tool_name": "general_query",
