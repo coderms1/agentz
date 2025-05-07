@@ -187,24 +187,23 @@ def crypto_analysis_tool():
             change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
             overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
-            # Fetch recent news using CryptoCompare
-            cryptocompare_api_key = os.getenv("CRYPTOCOMPARE_API_KEY")
-            news_url = f"https://min-api.cryptocompare.com/data/v2/news/?lang=EN&api_key={cryptocompare_api_key}"
+            # Fetch recent news using NewsAPI
+            newsapi_key = os.getenv("NEWSAPI_KEY")
+            news_url = f"https://newsapi.org/v2/everything?q={crypto_name}&sortBy=popularity&apiKey={newsapi_key}"
             news_response = requests.get(news_url)
             news_data = news_response.json()
 
             news_summary = "No new updates that I see at the moment...check back later!"
-            if news_data and news_data.get("Data"):
-                for article in news_data["Data"][:1]:  # Take the most recent article
-                    if crypto_name.lower() in article["title"].lower() or crypto_name.lower() in article["body"].lower():
-                        news_summary = (
-                            f"- Title: {article['title']}\n"
-                            f"- Published: {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(article['published_on']))}\n"
-                            f"- Source: {article['source']}\n"
-                            f"- Summary: {article['body'][:200]}...\n"
-                            f"- Source: [Read More]({article['url']})\n"
-                        )
-                        break
+            if news_data and news_data.get("articles"):
+                for article in news_data["articles"][:1]:  # Take the most recent/popular article
+                    published_at = article["publishedAt"].split("T")[0]  # Extract date only
+                    news_summary = (
+                        f"- Title: {article['title']}\n"
+                        f"- Published: {published_at}\n"
+                        f"- Summary: {article['description'][:200] if article['description'] else 'No summary available.'}...\n"
+                        f"- Source: [Read More]({article['url']})\n"
+                    )
+                    break
 
             # If the crypto is Bitcoin, fetch additional data from CoinDesk
             coindesk_price = None
@@ -248,7 +247,7 @@ def crypto_analysis_tool():
                 f"Detailed Info for {crypto_name.capitalize()}:\n\n"
             )
             if historical_trend_30d != "N/A":
-                details += f"- Historical Trend (30d): {historical_trend_30d}\n"
+                details += f"- Historical Trend (30d, CoinDesk): {historical_trend_30d}\n"
             details += (
                 f"\nRecent News:\n{news_summary}\n"
             )
