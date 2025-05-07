@@ -168,10 +168,20 @@ def crypto_analysis_tool():
             if not crypto_id:
                 return {"summary": "Error: Could not identify cryptocurrency.", "details": "Please specify a valid crypto name or symbol (e.g., Bitcoin, ETH)."}
 
-            # Fetch data from CoinGecko
+            # Fetch data from CoinGecko with retry mechanism
             url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}?localization=false&tickers=false&market_data=true"
-            response = requests.get(url)
-            data = response.json()
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(url, timeout=10)
+                    response.raise_for_status()  # Raise an exception for bad status codes
+                    data = response.json()
+                    break
+                except requests.exceptions.RequestException as e:
+                    if attempt == max_retries - 1:  # Last attempt
+                        return {"summary": "Error fetching crypto data.", "details": f"Failed to fetch data from CoinGecko after {max_retries} attempts: {str(e)}"}
+                    time.sleep(2 ** attempt)  # Exponential backoff
+
             if "error" in data:
                 return {"summary": f"API Error: {data['error']}", "details": "Failed to fetch data from CoinGecko."}
 
@@ -209,26 +219,42 @@ def crypto_analysis_tool():
             coindesk_price = None
             historical_trend_30d = "N/A"
             if crypto_id == "bitcoin":
-                # Fetch current price from CoinDesk
+                # Fetch current price from CoinDesk with retry mechanism
                 coindesk_url = "https://api.coindesk.com/v1/bpi/currentprice/USD.json"
-                coindesk_response = requests.get(coindesk_url)
-                coindesk_data = coindesk_response.json()
-                if "bpi" in coindesk_data and "USD" in coindesk_data["bpi"]:
-                    coindesk_price = float(coindesk_data["bpi"]["USD"]["rate_float"])
+                for attempt in range(max_retries):
+                    try:
+                        coindesk_response = requests.get(coindesk_url, timeout=10)
+                        coindesk_response.raise_for_status()
+                        coindesk_data = coindesk_response.json()
+                        if "bpi" in coindesk_data and "USD" in coindesk_data["bpi"]:
+                            coindesk_price = float(coindesk_data["bpi"]["USD"]["rate_float"])
+                        break
+                    except requests.exceptions.RequestException as e:
+                        if attempt == max_retries - 1:
+                            coindesk_price = None
+                        time.sleep(2 ** attempt)
 
                 # Fetch historical price (30 days ago) from CoinDesk
                 end_date = datetime.now()
                 start_date = end_date - timedelta(days=30)
                 historical_url = f"https://api.coindesk.com/v1/bpi/historical/close.json?start={start_date.strftime('%Y-%m-%d')}&end={end_date.strftime('%Y-%m-%d')}"
-                historical_response = requests.get(historical_url)
-                historical_data = historical_response.json()
-                if "bpi" in historical_data:
-                    prices = list(historical_data["bpi"].values())
-                    if len(prices) >= 2:
-                        price_30d_ago = float(prices[0])
-                        price_recent = float(prices[-1])
-                        change_30d = ((price_recent - price_30d_ago) / price_30d_ago) * 100
-                        historical_trend_30d = f"{change_30d:.2f}% ({'upward' if change_30d > 0 else 'downward' if change_30d < 0 else 'stable'})"
+                for attempt in range(max_retries):
+                    try:
+                        historical_response = requests.get(historical_url, timeout=10)
+                        historical_response.raise_for_status()
+                        historical_data = historical_response.json()
+                        if "bpi" in historical_data:
+                            prices = list(historical_data["bpi"].values())
+                            if len(prices) >= 2:
+                                price_30d_ago = float(prices[0])
+                                price_recent = float(prices[-1])
+                                change_30d = ((price_recent - price_30d_ago) / price_30d_ago) * 100
+                                historical_trend_30d = f"{change_30d:.2f}% ({'upward' if change_30d > 0 else 'downward' if change_30d < 0 else 'stable'})"
+                        break
+                    except requests.exceptions.RequestException as e:
+                        if attempt == max_retries - 1:
+                            historical_trend_30d = "N/A"
+                        time.sleep(2 ** attempt)
 
             summary = (
                 f"Crypto Update for {crypto_name.capitalize()}:\n"
