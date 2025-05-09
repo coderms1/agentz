@@ -8,7 +8,7 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from market_strategist import MarketStrategist
-from tools import crypto_analysis_tool
+from tools import crypto_analysis_tool, general_query_tool
 from guardrails import safe_process
 import uvicorn
 from fastapi import FastAPI, Request
@@ -28,11 +28,12 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 SOLSCAN_API_KEY = os.getenv("SOLSCAN_API_KEY")
 
-# Initialize the Market Strategist bot (only crypto_analysis_tool)
+# Initialize the Market Strategist bot (keep general_query_tool for future use)
 strategist = MarketStrategist(
     name="MarketStrategistBot",
     tools=[
-        crypto_analysis_tool()
+        crypto_analysis_tool(),
+        general_query_tool()
     ]
 )
 
@@ -69,7 +70,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_message = (
         "💡 *How to Use MarketStrategistBot*\n\n"
         "I’m here to help you find crypto info quickly!\n"
-        "- *Ticker Lookup*: Use commands like /eth or /doge.\n"
+        "- *Ticker Lookup*: Use commands like /eth or /doge, or just type the ticker (e.g., BTC).\n"
         "- *Contract Address Lookup*: Enter a contract address (e.g., 0x... for Ethereum, or a Solana address) to get token details.\n"
         "That’s it! Let’s find some crypto info! 📈"
     )
@@ -98,7 +99,7 @@ async def quick_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response["summary"], parse_mode="Markdown")
 
 
-# Handle user messages for contract addresses
+# Handle user messages for tickers or contract addresses
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_text = update.message.text.strip()
 

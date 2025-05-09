@@ -8,128 +8,9 @@ from cachetools import TTLCache
 
 # Caches (5-minute TTL, max 100 items)
 crypto_cache = TTLCache(maxsize=100, ttl=300)
-stock_cache = TTLCache(maxsize=100, ttl=300)
-news_cache = TTLCache(maxsize=50, ttl=3600)  # Cache news for 1 hour
 
 # Load environment variables from .env file
 load_dotenv()
-
-def stock_analysis_tool():
-    def analyze_stock(message):
-        try:
-            cache_key = f"stock_{message.lower()}"
-            if cache_key in stock_cache:
-                return stock_cache[cache_key]
-
-            time.sleep(1)
-            message_lower = message.lower()
-
-            # Extract stock name or symbol from the message
-            stock_symbol = None
-            words = message_lower.split()
-            for word in words:
-                word_clean = word.strip("?.!,").upper()
-                if len(word_clean) <= 5 and word_clean.isalpha():  # Likely a stock symbol
-                    stock_symbol = word_clean
-                    break
-
-            if not stock_symbol:
-                # Try to extract a stock name (fallback to words that might be company names)
-                stock_symbol = message_lower.split()[-1].upper()  # Take the last word as a potential symbol
-
-            fmp_api_key = os.getenv("FMP_API_KEY")
-            if not fmp_api_key:
-                return {"summary": "Error: FMP API key not found.", "details": "FMP API key is missing in environment variables."}
-
-            # Fetch quote data
-            quote_url = f"https://financialmodelingprep.com/api/v3/quote/{stock_symbol}?apikey={fmp_api_key}"
-            quote_response = requests.get(quote_url)
-            quote_response.raise_for_status()  # Raise exception for bad status codes
-            quote_data = quote_response.json()
-
-            if not quote_data or "error" in quote_data:
-                return {"summary": f"No stock data found for *{stock_symbol}*.", "details": "Please check the stock symbol (e.g., AAPL, TSLA) or try again later."}
-
-            # Fetch profile data for market cap and historical trend
-            profile_url = f"https://financialmodelingprep.com/api/v3/profile/{stock_symbol}?apikey={fmp_api_key}"
-            profile_response = requests.get(profile_url)
-            profile_data = profile_response.json()
-
-            # Fetch historical data for 7-day trend
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=7)
-            historical_url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{stock_symbol}?from={start_date.strftime('%Y-%m-%d')}&to={end_date.strftime('%Y-%m-%d')}&apikey={fmp_api_key}"
-            historical_response = requests.get(historical_url)
-            historical_data = historical_response.json()
-
-            # Fetch recent news
-            news_url = f"https://financialmodelingprep.com/api/v3/stock_news?tickers={stock_symbol}&limit=1&apikey={fmp_api_key}"
-            news_response = requests.get(news_url)
-            news_data = news_response.json()
-
-            price = float(quote_data[0]["price"])
-            change_percent_24h = float(quote_data[0]["changesPercentage"])
-            volume_24h = quote_data[0]["volume"] if "volume" in quote_data[0] else "N/A"
-            market_cap = profile_data[0]["mktCap"] if profile_data else "N/A"
-
-            # Calculate 7-day trend
-            change_percent_7d = "N/A"
-            trend_7d = "N/A"
-            if historical_data and "historical" in historical_data and len(historical_data["historical"]) >= 2:
-                price_7d_ago = float(historical_data["historical"][-1]["close"])
-                price_recent = float(historical_data["historical"][0]["close"])
-                change_percent_7d = ((price_recent - price_7d_ago) / price_7d_ago) * 100
-                trend_7d = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
-
-            summary = (
-                f"*Stock Update for {stock_symbol}*\n"
-                f"- Price: `${price:.2f}`\n"
-                f"- Market Cap: `${market_cap:,}` (if available)\n"
-                f"- Volume (24h): `{volume_24h:,}`\n"
-                f"- 24h Change: `{change_percent_24h:.2f}%`\n"
-                f"- 7d Trend: _{trend_7d}_ (`{change_percent_7d:.2f}%` if available)"
-            )
-
-            details = (
-                f"*Detailed Info for {stock_symbol}*\n\n"
-            )
-            if news_data:
-                latest_news = news_data[0]
-                details += (
-                    f"*Recent News*\n"
-                    f"- Title: {latest_news['title']}\n"
-                    f"- Published: {latest_news['publishedDate']}\n"
-                    f"- Summary: {latest_news['text'][:200]}...\n"
-                    f"- Source: [Read More]({latest_news['url']})\n"
-                )
-            else:
-                details += "*Recent News*: Not available.\n"
-
-            if "price" in message_lower:
-                summary = f"*Stock Price for {stock_symbol}*: `${price:.2f}`"
-            elif "volume" in message_lower:
-                summary = f"*Stock Volume (24h) for {stock_symbol}*: `{volume_24h:,}`"
-            elif "change" in message_lower or "trajectory" in message_lower:
-                summary = f"*Stock 24h Change for {stock_symbol}*: `{change_percent_24h:.2f}%`"
-            elif "trend" in message_lower:
-                summary = f"*Stock 7d Trend for {stock_symbol}*: _{trend_7d}_ (`{change_percent_7d:.2f}%` if available)"
-
-            result = {"summary": summary, "details": details}
-            stock_cache[cache_key] = result
-            return result
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
-                return {"summary": "API rate limit exceeded for stock data.", "details": "FMP API limit reached (250 requests/day). Please try again later."}
-            return {"summary": "Error fetching stock data.", "details": str(e)}
-        except Exception as e:
-            return {"summary": "Error fetching stock data.", "details": str(e)}
-
-    return {
-        "tool_name": "stock_analysis",
-        "tool_description": "Provide a basic update and analysis of a stock including price, market cap, volume, and change",
-        "function": analyze_stock
-    }
 
 def crypto_analysis_tool():
     def analyze_crypto(message):
@@ -209,35 +90,6 @@ def crypto_analysis_tool():
             change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
             overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
-            # Fetch recent news using NewsAPI
-            newsapi_key = os.getenv("NEWSAPI_KEY")
-            if not newsapi_key:
-                news_summary = "NewsAPI key is missing. Unable to fetch recent news."
-            else:
-                news_url = f"https://newsapi.org/v2/everything?q={crypto_name}&sortBy=popularity&apiKey={newsapi_key}"
-                try:
-                    news_response = requests.get(news_url)
-                    news_response.raise_for_status()
-                    news_data = news_response.json()
-                    news_summary = "No recent updates that I see at the moment...check back later!"
-                    if news_data and news_data.get("articles"):
-                        for article in news_data["articles"][:1]:
-                            published_at = article["publishedAt"].split("T")[0]
-                            news_summary = (
-                                f"- Title: {article['title']}\n"
-                                f"- Published: {published_at}\n"
-                                f"- Summary: {article['description'][:200] if article['description'] else 'No summary available.'}...\n"
-                                f"- Source: [Read More]({article['url']})\n"
-                            )
-                            break
-                except requests.exceptions.HTTPError as e:
-                    if e.response.status_code == 429:
-                        news_summary = "NewsAPI rate limit exceeded (500 requests/day). Please try again later."
-                    else:
-                        news_summary = f"Error fetching news: {str(e)}"
-                except Exception as e:
-                    news_summary = f"Unexpected error fetching news: {str(e)}"
-
             # Fetch additional data for Bitcoin from CoinDesk
             coindesk_price = None
             historical_trend_30d = "N/A"
@@ -279,15 +131,15 @@ def crypto_analysis_tool():
 
             summary = (
                 f"*Crypto Update for {crypto_name.capitalize()}*\n"
-                f"- Price: `${price:.2f}`"
+                f"- Price: ${price:.2f}"
             )
             if coindesk_price:
-                summary += f" (CoinDesk: `${coindesk_price:.2f}`)"
+                summary += f" (CoinDesk: ${coindesk_price:.2f})"
             summary += (
-                f"\n- Market Cap: `${market_cap:,}`\n"
-                f"- Volume (24h): `${volume_24h:,}`\n"
-                f"- 24h Change: `{change_percent_24h:.2f}%`\n"
-                f"- 7d Trend: _{overall_trend}_ (`{change_percent_7d:.2f}%` if available)"
+                f"\n- Market Cap: ${market_cap:,}\n"
+                f"- Volume (24h): ${volume_24h:,}\n"
+                f"- 24h Change: {change_percent_24h:.2f}%\n"
+                f"- 7d Trend: {overall_trend} ({change_percent_7d:.2f}% if available)"
             )
 
             details = (
@@ -295,20 +147,17 @@ def crypto_analysis_tool():
             )
             if historical_trend_30d != "N/A":
                 details += f"- Historical Trend (30d, CoinDesk): {historical_trend_30d}\n"
-            details += (
-                f"\n*Recent News*\n{news_summary}\n"
-            )
 
             if "price" in message_lower:
-                summary = f"*Crypto Price for {crypto_name.capitalize()}*: `${price:.2f}`"
+                summary = f"*Crypto Price for {crypto_name.capitalize()}*: ${price:.2f}"
                 if coindesk_price:
-                    summary += f" (CoinDesk: `${coindesk_price:.2f}`)"
+                    summary += f" (CoinDesk: ${coindesk_price:.2f})"
             elif "volume" in message_lower:
-                summary = f"*Crypto Volume (24h) for {crypto_name.capitalize()}*: `${volume_24h:,}`"
+                summary = f"*Crypto Volume (24h) for {crypto_name.capitalize()}*: ${volume_24h:,}"
             elif "change" in message_lower or "trajectory" in message_lower:
-                summary = f"*Crypto 24h Change for {crypto_name.capitalize()}*: `{change_percent_24h:.2f}%`"
+                summary = f"*Crypto 24h Change for {crypto_name.capitalize()}*: {change_percent_24h:.2f}%"
             elif "trend" in message_lower:
-                summary = f"*Crypto 7d Trend for {crypto_name.capitalize()}*: _{overall_trend}_ (`{change_percent_7d:.2f}%` if available)"
+                summary = f"*Crypto 7d Trend for {crypto_name.capitalize()}*: {overall_trend} ({change_percent_7d:.2f}% if available)"
 
             result = {"summary": summary, "details": details}
             crypto_cache[cache_key] = result
@@ -325,55 +174,6 @@ def crypto_analysis_tool():
         "tool_name": "crypto_analysis",
         "tool_description": "Provide a basic update and analysis of a cryptocurrency including price, market cap, volume, and change",
         "function": analyze_crypto
-    }
-
-def market_news_tool():
-    def summarize_news(message):
-        try:
-            cache_key = "market_news"
-            if cache_key in news_cache:
-                return news_cache[cache_key]
-
-            time.sleep(1)
-            topic = "stock market" if "stock" in message.lower() else "crypto market"
-            fmp_api_key = os.getenv("FMP_API_KEY")
-            if not fmp_api_key:
-                return {"summary": "Error: FMP API key not found.", "details": "FMP API key is missing in environment variables."}
-
-            url = f"https://financialmodelingprep.com/api/v3/stock_news?limit=1&apikey={fmp_api_key}"
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-
-            if not data or "error" in data:
-                return {"summary": "No market news found.", "details": f"Response: {data}"}
-
-            latest_news = data[0]
-            summary = (
-                f"*Market News ({topic})*\n"
-                f"- Title: {latest_news['title']}\n"
-                f"- Published: {latest_news['publishedDate']}"
-            )
-            details = (
-                f"- Summary: {latest_news['text'][:200]}...\n"
-                f"- Source: [Read More]({latest_news['url']})\n"
-            )
-
-            result = {"summary": summary, "details": details}
-            news_cache[cache_key] = result
-            return result
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
-                return {"summary": "API rate limit exceeded for market news.", "details": "FMP API limit reached (250 requests/day). Please try again later."}
-            return {"summary": "Error fetching market news.", "details": str(e)}
-        except Exception as e:
-            return {"summary": "Error fetching market news.", "details": str(e)}
-
-    return {
-        "tool_name": "market_news",
-        "tool_description": "Summarize recent market-related news or updates",
-        "function": summarize_news
     }
 
 def general_query_tool():
@@ -401,6 +201,6 @@ def general_query_tool():
 
     return {
         "tool_name": "general_query",
-        "tool_description": "Handle general queries outside the scope of market analysis using Anthropic's API",
+        "tool_description": "Handle general queries outside the scope of crypto analysis using Anthropic's API",
         "function": handle_general_query
     }

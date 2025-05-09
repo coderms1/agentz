@@ -2,10 +2,8 @@ class MarketStrategist:
     def __init__(self, name, tools=None):
         self.name = name
         self.instructions = (
-            "You are a Top Rated, Cutting Edge Market Analyst. Your expertise lies in the stock market, "
-            "cryptocurrency market, and related current events. Provide insightful answers about market trends, "
-            "stock analysis, crypto analysis, and market-related news. For queries outside this scope, use the "
-            "general query tool to provide a helpful response."
+            "You are a Top Rated, Cutting Edge Crypto Analyst. Your expertise lies in the cryptocurrency market. "
+            "Provide fast and accurate information about crypto coins, including price, market cap, volume, and trends."
         )
         self.tools = tools if tools else []
 
@@ -23,17 +21,6 @@ class MarketStrategist:
                     return tool["function"](message_lower.replace("crypto ", ""))
             return {"summary": "Error: Crypto analysis tool not found.", "details": "Please try again."}
 
-        market_keywords = ["stock", "market", "bitcoin", "ethereum", "price", "trend", "analysis", "news", "recommendation"]
-        is_market_related = any(keyword in message_lower for keyword in market_keywords)
-
-        # Check for potential stock symbols (short alphabetic strings, e.g., TSLA, AAPL)
-        stock_symbol = None
-        for word in words:
-            word_clean = word.strip("?.!,").upper()
-            if len(word_clean) <= 5 and word_clean.isalpha() and word_clean.lower() not in crypto_symbols:
-                stock_symbol = word_clean
-                break
-
         # Check for crypto names (e.g., Bitcoin, Ethereum, Cardano)
         crypto_name = None
         for word in words:
@@ -43,19 +30,7 @@ class MarketStrategist:
                 break
 
         for tool in self.tools:
-            tool_name = tool["tool_name"]
-            if is_market_related or stock_symbol or crypto_name:
-                # Route to stock analysis if stock keywords or symbols are present
-                if tool_name == "stock_analysis" and (stock_symbol or "stock" in message_lower or "apple" in message_lower or "tesla" in message_lower):
-                    return tool["function"](message)
-                elif tool_name == "market_news" and "news" in message_lower and "market" in message_lower:
-                    return tool["function"](message)
-                elif tool_name == "crypto_analysis" and (crypto_name or "bitcoin" in message_lower or "ethereum" in message_lower):
-                    return tool["function"](message)
-            # Fallback to general query tool only if no market-related terms are found
-            elif tool_name == "general_query" and not (is_market_related or stock_symbol or crypto_name):
+            if tool["tool_name"] == "crypto_analysis" and (crypto_name or "bitcoin" in message_lower or "ethereum" in message_lower):
                 return tool["function"](message)
 
-        if is_market_related or stock_symbol or crypto_name:
-            return {"summary": f"{self.name} analyzed: {message} (no specific tool used).", "details": "Please try a specific stock (e.g., Apple, TSLA) or crypto (e.g., Bitcoin, ETH)."}
-        return {"summary": "I couldn't process this query.", "details": "Please ask about a specific stock or crypto, or try a general question."}
+        return {"summary": "I couldn't process this query.", "details": "Please ask about a specific crypto (e.g., Bitcoin, ETH)."}
