@@ -1,5 +1,4 @@
 import os
-import random
 import requests
 import re
 import base58  # For Solana address validation
@@ -11,7 +10,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.error import BadRequest
 from market_strategist import MarketStrategist
-from tools import stock_analysis_tool, crypto_analysis_tool, market_news_tool, general_query_tool
+from tools import crypto_analysis_tool, general_query_tool  # Removed stock_analysis_tool
 from guardrails import safe_process
 import uvicorn
 from fastapi import FastAPI, Request
@@ -28,7 +27,6 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 SOLSCAN_API_KEY = os.getenv("SOLSCAN_API_KEY")
 
@@ -36,14 +34,12 @@ SOLSCAN_API_KEY = os.getenv("SOLSCAN_API_KEY")
 strategist = MarketStrategist(
     name="MarketStrategistBot",
     tools=[
-        stock_analysis_tool(),
         crypto_analysis_tool(),
-        market_news_tool(),
         general_query_tool()
     ]
 )
 
-# Store user-specific data (e.g., last analyzed asset, watchlist)
+# Store user-specific data
 user_data = {}
 
 # FastAPI app for webhook
@@ -83,27 +79,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Welcome message for first-time users
     if user_data[user_id]["first_time"]:
         welcome_message = (
-            f"👋 Hi {user_name}! I’m *MarketStrategistBot*, your friendly crypto and stock analyst! 📈\n"
-            "I can help you analyze assets, get market updates, and more.\n"
+            f"👋 Hi {user_name}! I’m *MarketStrategistBot*, your crypto lookup assistant! 📈\n"
+            "I can help you find crypto coins quickly and accurately.\n"
             "Select an option below, or type /help for tips!\n"
-            "You can also enter a ticker (e.g., ETH) or contract address (e.g., 0x... for Ethereum, or a Solana address) directly."
+            "Enter a ticker (e.g., ETH) or contract address (e.g., 0x... for Ethereum, or a Solana address) directly."
         )
         user_data[user_id]["first_time"] = False
     else:
-        welcome_message = f"👋 Welcome back, {user_name}! What would you like to do today? 📈"
+        welcome_message = f"👋 Welcome back, {user_name}! Let’s find some crypto info! 📈"
 
     keyboard = [
         [
             InlineKeyboardButton("💰 Analyze Crypto", callback_data="analyze_crypto"),
-            InlineKeyboardButton("📈 Analyze Stock", callback_data="analyze_stock")
         ],
         [
-            InlineKeyboardButton("📰 Random Market News", callback_data="random_market_news"),
-            InlineKeyboardButton("❓ General Question", callback_data="general_question")
-        ],
-        [
+            InlineKeyboardButton("❓ General Question", callback_data="general_question"),
             InlineKeyboardButton("🔍 Follow-Up", callback_data="follow_up"),
-            InlineKeyboardButton("⭐ Watchlist", callback_data="view_watchlist")
+        ],
+        [
+            InlineKeyboardButton("⭐ Watchlist", callback_data="view_watchlist"),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -128,19 +122,17 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "pending_blockchain": None
         }
 
-    welcome_message = f"👋 Hi {user_name}! Here’s the menu again. What would you like to do? 📈"
+    welcome_message = f"👋 Hi {user_name}! Here’s the menu again. Let’s find some crypto info! 📈"
     keyboard = [
         [
             InlineKeyboardButton("💰 Analyze Crypto", callback_data="analyze_crypto"),
-            InlineKeyboardButton("📈 Analyze Stock", callback_data="analyze_stock")
         ],
         [
-            InlineKeyboardButton("📰 Random Market News", callback_data="random_market_news"),
-            InlineKeyboardButton("❓ General Question", callback_data="general_question")
-        ],
-        [
+            InlineKeyboardButton("❓ General Question", callback_data="general_question"),
             InlineKeyboardButton("🔍 Follow-Up", callback_data="follow_up"),
-            InlineKeyboardButton("⭐ Watchlist", callback_data="view_watchlist")
+        ],
+        [
+            InlineKeyboardButton("⭐ Watchlist", callback_data="view_watchlist"),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -151,48 +143,34 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_message = (
         "💡 *How to Use MarketStrategistBot*\n\n"
-        "I’m here to help with crypto and stock analysis! Here’s how to get started:\n"
-        "- *Analyze an Asset*: Select 'Analyze Crypto' or 'Analyze Stock', then type the name or ticker (e.g., Bitcoin, ETH, $AAPL).\n"
-        "- *Random Market News*: Get a top stock or crypto news article of the day.\n"
-        "- *Follow-Up*: Ask more about your last analyzed asset (e.g., 'price', 'volume', 'change').\n"
-        "- *Watchlist*: Add assets with /add <ticker> (e.g., /add BTC), view with 'Watchlist'.\n"
-        "- *Quick Analysis*: Use commands like /eth or /aapl for fast analysis.\n"
+        "I’m here to help you find crypto coins quickly! Here’s how to get started:\n"
+        "- *Analyze a Crypto*: Select 'Analyze Crypto', then type the ticker (e.g., ETH, $ADA).\n"
+        "- *Follow-Up*: Ask more about your last analyzed coin (e.g., 'price', 'volume', 'change').\n"
+        "- *Watchlist*: Add coins with /add <ticker> (e.g., /add BTC), view with 'Watchlist'.\n"
+        "- *Quick Lookup*: Use commands like /eth or /doge for fast info.\n"
         "- *Contract Addresses*: Enter a contract address (e.g., 0x... for Ethereum, or a Solana address) to look up token details.\n"
         "- *Reset Menu*: Use /menu to return to the main menu.\n\n"
-        "Have questions? Just ask!"
+        "Need help? Just ask!"
     )
     await update.message.reply_text(help_message, parse_mode="Markdown")
 
 
-# Quick analysis commands (e.g., /eth, /aapl)
+# Quick analysis commands (e.g., /eth, /doge)
 async def quick_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     command = update.message.text[1:].lower()  # Remove the "/" (e.g., /eth -> eth)
     if not command:
-        await update.message.reply_text("Please provide a ticker (e.g., /eth, /aapl).", parse_mode="Markdown")
+        await update.message.reply_text("Please provide a ticker (e.g., /eth, /doge).", parse_mode="Markdown")
         return
 
     # Normalize command (remove $ if present)
     command_clean = command.replace("$", "")
 
-    # Determine if it's a crypto or stock based on a broader check
-    crypto_symbols = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
-    stock_symbols = ["aapl", "tsla", "msft", "amzn", "googl"]
-
-    # Set the query type based on the command
-    if command_clean in crypto_symbols or "bitcoin" in command_clean or "ethereum" in command_clean:
-        user_data[user_id]["last_query_type"] = "crypto"
-    elif command_clean in stock_symbols or "apple" in command_clean or "tesla" in command_clean:
-        user_data[user_id]["last_query_type"] = "stock"
-    else:
-        # Fallback: Try crypto first, then stock
-        user_data[user_id]["last_query_type"] = "crypto"
+    # Set query type to crypto
+    user_data[user_id]["last_query_type"] = "crypto"
 
     # Process the command
     response = safe_process(strategist, command)
-    if "Error" in response["summary"] and user_data[user_id]["last_query_type"] == "crypto":
-        user_data[user_id]["last_query_type"] = "stock"
-        response = safe_process(strategist, command)
 
     user_data[user_id]["last_analyzed"] = command
     user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
@@ -241,7 +219,7 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in user_data or not user_data[user_id]["watchlist"]:
-        await update.message.reply_text("Your watchlist is empty! Add assets with /add <ticker> (e.g., /add BTC).",
+        await update.message.reply_text("Your watchlist is empty! Add coins with /add <ticker> (e.g., /add BTC).",
                                         parse_mode="Markdown")
         return
 
@@ -254,54 +232,6 @@ async def view_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message += f"**{ticker}**\n{response['summary']}\n\n"
     await update.message.reply_text(message, parse_mode="Markdown")
-
-
-# Handle random market news event
-async def random_market_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not NEWSAPI_KEY:
-        await update.message.reply_text("❌ NewsAPI key is missing. Unable to fetch market news.", parse_mode="Markdown")
-        return
-
-    try:
-        news_url = f"https://newsapi.org/v2/everything?q=cryptocurrency OR stocks&sortBy=popularity&apiKey={NEWSAPI_KEY}"
-        news_response = requests.get(news_url)
-        news_response.raise_for_status()  # Raise exception for bad status codes
-        news_data = news_response.json()
-
-        if not news_data or "articles" not in news_data or not news_data["articles"]:
-            await update.message.reply_text("❌ Could not fetch market news. Try again later!", parse_mode="Markdown")
-            return
-
-        # Randomly select a news article
-        articles = news_data["articles"]
-        article = random.choice(articles)
-        published_at = article["publishedAt"].split("T")[0]  # Extract date only
-        message = (
-            f"📰 *Random Market News Event*\n\n"
-            f"**{article['title']}**\n"
-            f"- Published: {published_at}\n"
-            f"- Summary: {article['description'][:200] if article['description'] else 'No summary available.'}...\n"
-            f"- Source: [Read More]({article['url']})\n"
-        )
-        await update.message.reply_text(message, parse_mode="Markdown")
-
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 429:  # Rate limit exceeded
-            await update.message.reply_text(
-                "❌ I’ve hit the NewsAPI rate limit (500 requests/day). Please try again later!",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text(
-                f"❌ Error fetching market news: {str(e)}",
-                parse_mode="Markdown"
-            )
-    except Exception as e:
-        await update.message.reply_text(
-            f"❌ Unexpected error while fetching market news: {str(e)}",
-            parse_mode="Markdown"
-        )
 
 
 # Handle button clicks
@@ -346,15 +276,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Which crypto would you like to analyze? (e.g., Bitcoin, ETH, $ADA)",
                                        parse_mode="Markdown")
 
-    elif callback_data == "analyze_stock":
-        user_data[user_id]["state"] = "waiting_for_stock"
-        user_data[user_id]["last_query_type"] = "stock"
-        await query.message.reply_text("Which stock would you like to analyze? (e.g., Apple, AAPL, $TSLA)",
-                                       parse_mode="Markdown")
-
-    elif callback_data == "random_market_news":
-        await random_market_news(update, context)
-
     elif callback_data == "general_question":
         user_data[user_id]["state"] = "waiting_for_general"
         user_data[user_id]["last_query_type"] = "general"
@@ -364,7 +285,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_analyzed = user_data[user_id].get("last_analyzed")
         if not last_analyzed:
             await query.message.reply_text(
-                "No previous analysis to follow up on. Please analyze a stock or crypto first. 📊",
+                "No previous analysis to follow up on. Please analyze a crypto first. 📊",
                 parse_mode="Markdown"
             )
             return
@@ -399,40 +320,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_analyzed = user_data[user_id].get("last_analyzed")
         last_query_type = user_data[user_id].get("last_query_type")
         if not last_analyzed:
-            await query.message.reply_text("Please analyze an asset first before checking historical trends.",
+            await query.message.reply_text("Please analyze a coin first before checking historical trends.",
                                            parse_mode="Markdown")
             return
 
-        if last_query_type == "stock":
-            fmp_api_key = os.getenv("FMP_API_KEY")
-            if not fmp_api_key:
-                await query.message.reply_text("Error: FMP API key not found.", parse_mode="Markdown")
-                return
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=30)
-            historical_url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{last_analyzed.upper()}?from={start_date.strftime('%Y-%m-%d')}&to={end_date.strftime('%Y-%m-%d')}&apikey={fmp_api_key}"
-            try:
-                historical_response = requests.get(historical_url)
-                historical_response.raise_for_status()
-                historical_data = historical_response.json()
-                if historical_data and "historical" in historical_data and len(historical_data["historical"]) >= 2:
-                    price_30d_ago = float(historical_data["historical"][-1]["close"])
-                    price_recent = float(historical_data["historical"][0]["close"])
-                    change_30d = ((price_recent - price_30d_ago) / price_30d_ago) * 100
-                    trend_30d = "upward" if change_30d > 0 else "downward" if change_30d < 0 else "stable"
-                    message = f"📅 *Historical Trend for {last_analyzed.upper()} (30d)*\n\n- Change: {change_30d:.2f}% ({trend_30d})"
-                else:
-                    message = f"📅 Historical trend for *{last_analyzed.upper()}* is not available at the moment."
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 429:
-                    message = "❌ I’ve hit the FMP API rate limit (250 requests/day). Please try again later!"
-                else:
-                    message = f"❌ Error fetching historical data: {str(e)}"
-            except Exception as e:
-                message = f"❌ Unexpected error: {str(e)}"
-            await query.message.reply_text(message, parse_mode="Markdown")
-
-        elif last_query_type == "crypto":
+        if last_query_type == "crypto":
             if last_analyzed.lower() in ["btc", "bitcoin"]:
                 end_date = datetime.now()
                 start_date = end_date - timedelta(days=30)
@@ -520,8 +412,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 contract_info = data["result"][0]
                 contract_name = contract_info.get("ContractName", "Unknown Contract")
 
-                # Fallback token info (since Etherscan doesn't directly provide token metadata)
-                # We'll use a simple lookup for well-known tokens; for full metadata, we'd need web3.py or another API
+                # Fallback token info
                 known_tokens = {
                     "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {"name": "USD Coin", "symbol": "USDC"},
                     "0xdac17f958d2ee523a2206206994597c13d831ec7": {"name": "Tether USD", "symbol": "USDT"}
@@ -695,10 +586,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Detect potential tickers (short alphabetic strings or with $)
     ticker_pattern = r"^\$?[A-Za-z]{1,5}$"
     crypto_symbols = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
-    stock_symbols = ["aapl", "tsla", "msft", "amzn", "googl"]
     if state is None and re.match(ticker_pattern, message_text):
         ticker = message_text.replace("$", "").lower()
-        # Check if it's a known crypto or stock
+        # Check if it's a known crypto
         if ticker in crypto_symbols:
             user_data[user_id]["pending_ticker"] = ticker
             crypto_name = next((coin["name"] for coin in [
@@ -724,55 +614,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             return
-        elif ticker in stock_symbols:
-            user_data[user_id]["pending_ticker"] = ticker
-            stock_name = next((stock["name"] for stock in [
-                {"symbol": "aapl", "name": "Apple"},
-                {"symbol": "tsla", "name": "Tesla"},
-                {"symbol": "msft", "name": "Microsoft"},
-                {"symbol": "amzn", "name": "Amazon"},
-                {"symbol": "googl", "name": "Google"}
-            ] if stock["symbol"] == ticker), "Unknown Stock")
-            reply_markup = InlineKeyboardMarkup([
-                [InlineKeyboardButton("Yes", callback_data="confirm_ticker_yes"),
-                 InlineKeyboardButton("No", callback_data="confirm_ticker_no")]
-            ])
-            await update.message.reply_text(
-                f"Did you mean ${ticker.upper()} ({stock_name})?",
-                reply_markup=reply_markup,
-                parse_mode="Markdown"
-            )
-            return
 
-    if state == "waiting_for_stock":
+    if state == "waiting_for_crypto":
         if not message_text:
-            await update.message.reply_text("Please enter a stock name or symbol (e.g., Apple, AAPL, $TSLA).",
-                                            parse_mode="Markdown")
-            return
-        response = safe_process(strategist, message_text)
-        if "Error" in response["summary"]:
-            response[
-                "summary"] += "\n\nPlease try a recognized stock like Apple, Google, Microsoft, Amazon, or Tesla, or use a symbol like AAPL."
-        elif "API rate limit" in response["summary"].lower():
-            response[
-                "summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., 250 requests/day for FMP). Please try again later."
-        user_data[user_id]["last_analyzed"] = message_text
-        user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
-        user_data[user_id]["state"] = "waiting_for_detailed_response"
-        reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📖 More Details", callback_data="more_details")],
-            [InlineKeyboardButton("🔄 Compare with BTC", callback_data="compare_btc")],
-            [InlineKeyboardButton("📅 Historical Trend", callback_data="historical_trend")]
-        ])
-        await update.message.reply_text(
-            f"{response['summary']}\n\nPress a button below for more options! 🔍",
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
-        )
-
-    elif state == "waiting_for_crypto":
-        if not message_text:
-            await update.message.reply_text("Please enter a crypto name or symbol (e.g., Bitcoin, ETH, $ADA).",
+            await update.message.reply_text("Please enter a crypto ticker (e.g., Bitcoin, ETH, $ADA).",
                                             parse_mode="Markdown")
             return
         response = safe_process(strategist, f"crypto {message_text}")
@@ -838,7 +683,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         await update.message.reply_text(
-            "Please select an option from the menu, use a command like /eth or /aapl, or enter a ticker/contract address.",
+            "Please select an option from the menu, use a command like /eth or /doge, or enter a ticker/contract address.",
             parse_mode="Markdown")
 
 
@@ -862,8 +707,7 @@ async def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("add", add_to_watchlist))
     # Add quick analysis commands for popular assets
-    popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge", "aapl", "tsla",
-                      "msft", "amzn", "googl"]
+    popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
     for asset in popular_assets:
         application.add_handler(CommandHandler(asset, quick_analyze))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
