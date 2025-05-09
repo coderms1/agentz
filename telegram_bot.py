@@ -1,6 +1,8 @@
 import os
 import random
 import requests
+import re
+import base58  # For Solana address validation
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime, timedelta
@@ -18,6 +20,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
+SOLSCAN_API_KEY = os.getenv("SOLSCAN_API_KEY")
 
 # Initialize the Market Strategist bot
 strategist = MarketStrategist(
@@ -53,7 +57,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_query_type": None,
             "state": None,
             "watchlist": [],
-            "first_time": True
+            "first_time": True,
+            "pending_ticker": None,
+            "pending_address": None,
+            "pending_blockchain": None
         }
 
     # Welcome message for first-time users
@@ -61,7 +68,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         welcome_message = (
             f"👋 Hi {user_name}! I’m *MarketStrategistBot*, your friendly crypto and stock analyst! 📈\n"
             "I can help you analyze assets, get market updates, and more.\n"
-            "Select an option below, or type /help for tips!"
+            "Select an option below, or type /help for tips!\n"
+            "You can also enter a ticker (e.g., ETH) or contract address (e.g., 0x... for Ethereum, or a Solana address) directly."
         )
         user_data[user_id]["first_time"] = False
     else:
@@ -97,7 +105,10 @@ async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_query_type": None,
             "state": None,
             "watchlist": [],
-            "first_time": True
+            "first_time": True,
+            "pending_ticker": None,
+            "pending_address": None,
+            "pending_blockchain": None
         }
 
     welcome_message = f"👋 Hi {user_name}! Here’s the menu again. What would you like to do? 📈"
@@ -129,6 +140,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "- *Follow-Up*: Ask more about your last analyzed asset (e.g., 'price', 'volume', 'change').\n"
         "- *Watchlist*: Add assets with /add <ticker> (e.g., /add BTC), view with 'Watchlist'.\n"
         "- *Quick Analysis*: Use commands like /eth or /aapl for fast analysis.\n"
+        "- *Contract Addresses*: Enter a contract address (e.g., 0x... for Ethereum, or a Solana address) to look up token details.\n"
         "- *Reset Menu*: Use /menu to return to the main menu.\n\n"
         "Have questions? Just ask!"
     )
@@ -195,7 +207,10 @@ async def add_to_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_query_type": None,
             "state": None,
             "watchlist": [],
-            "first_time": False
+            "first_time": False,
+            "pending_ticker": None,
+            "pending_address": None,
+            "pending_blockchain": None
         }
 
     if ticker not in user_data[user_id]["watchlist"]:
@@ -285,7 +300,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_query_type": None,
             "state": None,
             "watchlist": [],
-            "first_time": False
+            "first_time": False,
+            "pending_ticker": None,
+            "pending_address": None,
+            "pending_blockchain": None
         }
 
     callback_data = query.data
@@ -414,6 +432,120 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message = f"📅 Historical trend for *{last_analyzed.upper()}* is not yet available. Stay tuned for this feature!"
             await query.message.reply_text(message, parse_mode="Markdown")
 
+    elif callback_data == "confirm_ticker_yes":
+        ticker = user_data[user_id].get("pending_ticker")
+        if not ticker:
+            await query.message.reply_text("No ticker to confirm. Please enter a ticker or contract address.",
+                                           parse_mode="Markdown")
+            return
+        user_data[user_id]["pending_ticker"] = None
+        user_data[user_id]["last_query_type"] = "crypto"
+        response = safe_process(strategist, ticker)
+        user_data[user_id]["last_analyzed"] = ticker
+        user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
+        user_data[user_id]["state"] = "waiting_for_detailed_response"
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📖 More Details", callback_data="more_details")],
+            [InlineKeyboardButton("🔄 Compare with BTC", callback_data="compare_btc")],
+            [InlineKeyboardButton("📅 Historical Trend", callback_data="historical_trend")]
+        ])
+        await query.message.reply_text(
+            f"{response['summary']}\n\nPress a button below for more options! 🔍",
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
+        )
+
+    elif callback_data == "confirm_ticker_no":
+        user_data[user_id]["pending_ticker"] = None
+        await query.message.reply_text("Please enter a different ticker or contract address.", parse_mode="Markdown")
+
+    elif callback_data == "confirm_address_yes":
+        address = user_data[user_id].get("pending_address")
+        blockchain = user_data[user_id].get("pending_blockchain")
+        if not address or not blockchain:
+            await query.message.reply_text("No contract address to confirm. Please enter a ticker or contract address.",
+                                           parse_mode="Markdown")
+            return
+        user_data[user_id]["pending_address"] = None
+        user_data[user_id]["pending_blockchain"] = None
+        # Look up the contract address based on the blockchain
+        if blockchain == "ethereum":
+            if not ETHERSCAN_API_KEY:
+                await query.message.reply_text("❌ Etherscan API key is missing. Unable to fetch contract details.",
+                                               parse_mode="Markdown")
+                return
+            try:
+                # Fetch token details from Etherscan
+                url = f"https://api.etherscan.io/api?module=token&action=tokeninfo&contractaddress={address}&apikey={ETHERSCAN_API_KEY}"
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                if data["status"] != "1":
+                    await query.message.reply_text(f"❌ Could not fetch token details for {address} on Ethereum.",
+                                                   parse_mode="Markdown")
+                    return
+
+                token_name = data["result"]["tokenName"]
+                token_symbol = data["result"]["symbol"]
+                summary = f"*Token Details (Ethereum)*\n- Name: {token_name}\n- Symbol: {token_symbol}\n- Contract Address: {address}"
+                user_data[user_id]["last_analyzed"] = token_symbol
+                user_data[user_id]["last_query_type"] = "crypto"
+                user_data[user_id]["last_detailed_info"] = summary
+                user_data[user_id]["state"] = "waiting_for_detailed_response"
+                reply_markup = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📖 More Details", callback_data="more_details")]
+                ])
+                await query.message.reply_text(
+                    f"{summary}\n\nPress the button below for more details! 🔍",
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+
+            except requests.exceptions.RequestException as e:
+                await query.message.reply_text(f"❌ Error fetching contract details: {str(e)}", parse_mode="Markdown")
+
+        elif blockchain == "solana":
+            if not SOLSCAN_API_KEY:
+                await query.message.reply_text("❌ Solscan API key is missing. Unable to fetch contract details.",
+                                               parse_mode="Markdown")
+                return
+            try:
+                # Fetch token details from Solscan
+                headers = {"Authorization": f"Bearer {SOLSCAN_API_KEY}"}
+                url = f"https://api-v2.solscan.io/v2/token/meta?address={address}"
+                response = requests.get(url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                if "data" not in data or not data["data"]:
+                    await query.message.reply_text(f"❌ Could not fetch token details for {address} on Solana.",
+                                                   parse_mode="Markdown")
+                    return
+
+                token_data = data["data"]
+                token_name = token_data.get("name", "Unknown Token")
+                token_symbol = token_data.get("symbol", "Unknown")
+                summary = f"*Token Details (Solana)*\n- Name: {token_name}\n- Symbol: {token_symbol}\n- Contract Address: {address}"
+                user_data[user_id]["last_analyzed"] = token_symbol
+                user_data[user_id]["last_query_type"] = "crypto"
+                user_data[user_id]["last_detailed_info"] = summary
+                user_data[user_id]["state"] = "waiting_for_detailed_response"
+                reply_markup = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📖 More Details", callback_data="more_details")]
+                ])
+                await query.message.reply_text(
+                    f"{summary}\n\nPress the button below for more details! 🔍",
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+
+            except requests.exceptions.RequestException as e:
+                await query.message.reply_text(f"❌ Error fetching contract details: {str(e)}", parse_mode="Markdown")
+
+    elif callback_data == "confirm_address_no":
+        user_data[user_id]["pending_address"] = None
+        user_data[user_id]["pending_blockchain"] = None
+        await query.message.reply_text("Please enter a different ticker or contract address.", parse_mode="Markdown")
+
 
 # Handle user messages
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -427,10 +559,130 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_query_type": None,
             "state": None,
             "watchlist": [],
-            "first_time": False
+            "first_time": False,
+            "pending_ticker": None,
+            "pending_address": None,
+            "pending_blockchain": None
         }
 
     state = user_data[user_id].get("state")
+
+    # Detect contract addresses
+    # Ethereum: starts with 0x, followed by 40 hex characters
+    eth_address_pattern = r"^0x[a-fA-F0-9]{40}$"
+    # Solana: 44-character Base58 string (approx. length, we'll validate with base58)
+    sol_address_pattern = r"^[1-9A-HJ-NP-Za-km-z]{43,45}$"
+
+    if state is None:
+        # Check for Ethereum address
+        if re.match(eth_address_pattern, message_text):
+            user_data[user_id]["pending_address"] = message_text
+            user_data[user_id]["pending_blockchain"] = "ethereum"
+            token_name = "Unknown Token"
+            if ETHERSCAN_API_KEY:
+                try:
+                    url = f"https://api.etherscan.io/api?module=token&action=tokeninfo&contractaddress={message_text}&apikey={ETHERSCAN_API_KEY}"
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    data = response.json()
+                    if data["status"] == "1":
+                        token_name = data["result"]["tokenName"]
+                except:
+                    pass
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Yes", callback_data="confirm_address_yes"),
+                 InlineKeyboardButton("No", callback_data="confirm_address_no")]
+            ])
+            await update.message.reply_text(
+                f"Did you mean the token *{token_name}* at address {message_text} on Ethereum?",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return
+
+        # Check for Solana address
+        if re.match(sol_address_pattern, message_text):
+            # Validate Solana address using base58
+            try:
+                base58.decode(message_text)  # Will raise an exception if not a valid Base58 string
+                user_data[user_id]["pending_address"] = message_text
+                user_data[user_id]["pending_blockchain"] = "solana"
+                token_name = "Unknown Token"
+                if SOLSCAN_API_KEY:
+                    try:
+                        headers = {"Authorization": f"Bearer {SOLSCAN_API_KEY}"}
+                        url = f"https://api-v2.solscan.io/v2/token/meta?address={message_text}"
+                        response = requests.get(url, headers=headers)
+                        response.raise_for_status()
+                        data = response.json()
+                        if "data" in data and data["data"]:
+                            token_name = data["data"].get("name", "Unknown Token")
+                    except:
+                        pass
+                reply_markup = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("Yes", callback_data="confirm_address_yes"),
+                     InlineKeyboardButton("No", callback_data="confirm_address_no")]
+                ])
+                await update.message.reply_text(
+                    f"Did you mean the token *{token_name}* at address {message_text} on Solana?",
+                    reply_markup=reply_markup,
+                    parse_mode="Markdown"
+                )
+                return
+            except ValueError:
+                pass  # Not a valid Solana address, continue with other checks
+
+    # Detect potential tickers (short alphabetic strings or with $)
+    ticker_pattern = r"^\$?[A-Za-z]{1,5}$"
+    crypto_symbols = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
+    stock_symbols = ["aapl", "tsla", "msft", "amzn", "googl"]
+    if state is None and re.match(ticker_pattern, message_text):
+        ticker = message_text.replace("$", "").lower()
+        # Check if it's a known crypto or stock
+        if ticker in crypto_symbols:
+            user_data[user_id]["pending_ticker"] = ticker
+            crypto_name = next((coin["name"] for coin in [
+                {"symbol": "btc", "name": "Bitcoin"},
+                {"symbol": "eth", "name": "Ethereum"},
+                {"symbol": "sol", "name": "Solana"},
+                {"symbol": "dot", "name": "Polkadot"},
+                {"symbol": "avax", "name": "Avalanche"},
+                {"symbol": "link", "name": "Chainlink"},
+                {"symbol": "inj", "name": "Injective"},
+                {"symbol": "sui", "name": "Sui"},
+                {"symbol": "ada", "name": "Cardano"},
+                {"symbol": "xrp", "name": "XRP"},
+                {"symbol": "doge", "name": "Dogecoin"}
+            ] if coin["symbol"] == ticker), "Unknown Crypto")
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Yes", callback_data="confirm_ticker_yes"),
+                 InlineKeyboardButton("No", callback_data="confirm_ticker_no")]
+            ])
+            await update.message.reply_text(
+                f"Did you mean ${ticker.upper()} ({crypto_name})?",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return
+        elif ticker in stock_symbols:
+            user_data[user_id]["pending_ticker"] = ticker
+            stock_name = next((stock["name"] for stock in [
+                {"symbol": "aapl", "name": "Apple"},
+                {"symbol": "tsla", "name": "Tesla"},
+                {"symbol": "msft", "name": "Microsoft"},
+                {"symbol": "amzn", "name": "Amazon"},
+                {"symbol": "googl", "name": "Google"}
+            ] if stock["symbol"] == ticker), "Unknown Stock")
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Yes", callback_data="confirm_ticker_yes"),
+                 InlineKeyboardButton("No", callback_data="confirm_ticker_no")]
+            ])
+            await update.message.reply_text(
+                f"Did you mean ${ticker.upper()} ({stock_name})?",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return
 
     if state == "waiting_for_stock":
         if not message_text:
@@ -463,7 +715,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Please enter a crypto name or symbol (e.g., Bitcoin, ETH, $ADA).",
                                             parse_mode="Markdown")
             return
-        # Force routing to crypto analysis by prepending a keyword
         response = safe_process(strategist, f"crypto {message_text}")
         if "Error" in response["summary"]:
             response[
@@ -526,8 +777,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     else:
-        await update.message.reply_text("Please select an option from the menu or use a command like /eth or /aapl.",
-                                        parse_mode="Markdown")
+        await update.message.reply_text(
+            "Please select an option from the menu, use a command like /eth or /aapl, or enter a ticker/contract address.",
+            parse_mode="Markdown")
 
 
 # Webhook route
