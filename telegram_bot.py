@@ -150,6 +150,7 @@ async def quick_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     crypto_symbols = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
     stock_symbols = ["aapl", "tsla", "msft", "amzn", "googl"]
 
+    # Set the query type based on the command
     if command_clean in crypto_symbols or "bitcoin" in command_clean or "ethereum" in command_clean:
         user_data[user_id]["last_query_type"] = "crypto"
     elif command_clean in stock_symbols or "apple" in command_clean or "tesla" in command_clean:
@@ -157,10 +158,12 @@ async def quick_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         # Fallback: Try crypto first, then stock
         user_data[user_id]["last_query_type"] = "crypto"
+
+    # Process the command
+    response = safe_process(strategist, command)
+    if "Error" in response["summary"] and user_data[user_id]["last_query_type"] == "crypto":
+        user_data[user_id]["last_query_type"] = "stock"
         response = safe_process(strategist, command)
-        if "Error" in response["summary"]:
-            user_data[user_id]["last_query_type"] = "stock"
-            response = safe_process(strategist, command)
 
     user_data[user_id]["last_analyzed"] = command
     user_data[user_id]["last_detailed_info"] = response.get("details", "No additional details available.")
@@ -460,7 +463,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Please enter a crypto name or symbol (e.g., Bitcoin, ETH, $ADA).",
                                             parse_mode="Markdown")
             return
-        response = safe_process(strategist, message_text)
+        # Force routing to crypto analysis by prepending a keyword
+        response = safe_process(strategist, f"crypto {message_text}")
         if "Error" in response["summary"]:
             response[
                 "summary"] += "\n\nPlease try a recognized crypto like Bitcoin, Ethereum, Solana, Polkadot, Avalanche, Chainlink, Injective, or Sui."

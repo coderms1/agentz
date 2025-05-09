@@ -10,10 +10,17 @@ class MarketStrategist:
         self.tools = tools if tools else []
 
     def process(self, message):
-        market_keywords = ["stock", "crypto", "market", "bitcoin", "ethereum", "price", "trend", "analysis", "news", "recommendation"]
-        is_market_related = any(keyword in message.lower() for keyword in market_keywords)
-
         message_lower = message.lower()
+
+        # Force crypto routing if the message starts with "crypto "
+        if message_lower.startswith("crypto "):
+            for tool in self.tools:
+                if tool["tool_name"] == "crypto_analysis":
+                    return tool["function"](message_lower.replace("crypto ", ""))
+            return {"summary": "Error: Crypto analysis tool not found.", "details": "Please try again."}
+
+        market_keywords = ["stock", "crypto", "market", "bitcoin", "ethereum", "price", "trend", "analysis", "news", "recommendation"]
+        is_market_related = any(keyword in message_lower for keyword in market_keywords)
 
         # Check for potential stock symbols (short alphabetic strings, e.g., TSLA, AAPL)
         stock_symbol = None
@@ -36,7 +43,6 @@ class MarketStrategist:
         crypto_name = None
         for word in words:
             word_clean = word.strip("?.!,").lower()
-            # Broaden the check to include any word that might be a crypto name
             if word_clean in message_lower and len(word_clean) > 2:  # Avoid short words that might be ambiguous
                 crypto_name = word_clean
                 break

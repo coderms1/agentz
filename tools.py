@@ -6,15 +6,21 @@ from dotenv import load_dotenv
 from anthropic import Anthropic, AnthropicError
 from cachetools import TTLCache
 
+# Caches (5-minute TTL, max 100 items)
+crypto_cache = TTLCache(maxsize=100, ttl=300)
+stock_cache = TTLCache(maxsize=100, ttl=300)
+news_cache = TTLCache(maxsize=50, ttl=3600)  # Cache news for 1 hour
+
 # Load environment variables from .env file
 load_dotenv()
-
-# Cache for crypto analysis (5-minute TTL, max 100 items)
-crypto_cache = TTLCache(maxsize=100, ttl=300)
 
 def stock_analysis_tool():
     def analyze_stock(message):
         try:
+            cache_key = f"stock_{message.lower()}"
+            if cache_key in stock_cache:
+                return stock_cache[cache_key]
+
             time.sleep(1)
             message_lower = message.lower()
 
@@ -38,10 +44,11 @@ def stock_analysis_tool():
             # Fetch quote data
             quote_url = f"https://financialmodelingprep.com/api/v3/quote/{stock_symbol}?apikey={fmp_api_key}"
             quote_response = requests.get(quote_url)
+            quote_response.raise_for_status()  # Raise exception for bad status codes
             quote_data = quote_response.json()
 
             if not quote_data or "error" in quote_data:
-                return {"summary": f"No stock data found for {stock_symbol}.", "details": "Please check the stock symbol (e.g., AAPL, TSLA) or try again later."}
+                return {"summary": f"No stock data found for *{stock_symbol}*.", "details": "Please check the stock symbol (e.g., AAPL, TSLA) or try again later."}
 
             # Fetch profile data for market cap and historical trend
             profile_url = f"https://financialmodelingprep.com/api/v3/profile/{stock_symbol}?apikey={fmp_api_key}"
@@ -75,40 +82,46 @@ def stock_analysis_tool():
                 trend_7d = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
             summary = (
-                f"Stock Update for {stock_symbol}:\n"
-                f"- Price: ${price:.2f}\n"
-                f"- Market Cap: ${market_cap:,} (if available)\n"
-                f"- Volume (24h): {volume_24h:,}\n"
-                f"- 24h Change: {change_percent_24h:.2f}%\n"
-                f"- 7d Trend: {trend_7d} ({change_percent_7d:.2f}% if available)"
+                f"*Stock Update for {stock_symbol}*\n"
+                f"- Price: `${price:.2f}`\n"
+                f"- Market Cap: `${market_cap:,}` (if available)\n"
+                f"- Volume (24h): `{volume_24h:,}`\n"
+                f"- 24h Change: `{change_percent_24h:.2f}%`\n"
+                f"- 7d Trend: _{trend_7d}_ (`{change_percent_7d:.2f}%` if available)"
             )
 
             details = (
-                f"Detailed Info for {stock_symbol}:\n\n"
+                f"*Detailed Info for {stock_symbol}*\n\n"
             )
             if news_data:
                 latest_news = news_data[0]
                 details += (
-                    f"Recent News:\n"
+                    f"*Recent News*\n"
                     f"- Title: {latest_news['title']}\n"
                     f"- Published: {latest_news['publishedDate']}\n"
                     f"- Summary: {latest_news['text'][:200]}...\n"
                     f"- Source: [Read More]({latest_news['url']})\n"
                 )
             else:
-                details += "\nRecent News: Not available.\n"
+                details += "*Recent News*: Not available.\n"
 
             if "price" in message_lower:
-                summary = f"Stock Price for {stock_symbol}: ${price:.2f}"
+                summary = f"*Stock Price for {stock_symbol}*: `${price:.2f}`"
             elif "volume" in message_lower:
-                summary = f"Stock Volume (24h) for {stock_symbol}: {volume_24h:,}"
+                summary = f"*Stock Volume (24h) for {stock_symbol}*: `{volume_24h:,}`"
             elif "change" in message_lower or "trajectory" in message_lower:
-                summary = f"Stock 24h Change for {stock_symbol}: {change_percent_24h:.2f}%"
+                summary = f"*Stock 24h Change for {stock_symbol}*: `{change_percent_24h:.2f}%`"
             elif "trend" in message_lower:
-                summary = f"Stock 7d Trend for {stock_symbol}: {trend_7d} ({change_percent_7d:.2f}% if available)"
+                summary = f"*Stock 7d Trend for {stock_symbol}*: _{trend_7d}_ (`{change_percent_7d:.2f}%` if available)"
 
-            return {"summary": summary, "details": details}
+            result = {"summary": summary, "details": details}
+            stock_cache[cache_key] = result
+            return result
 
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                return {"summary": "API rate limit exceeded for stock data.", "details": "FMP API limit reached (250 requests/day). Please try again later."}
+            return {"summary": "Error fetching stock data.", "details": str(e)}
         except Exception as e:
             return {"summary": "Error fetching stock data.", "details": str(e)}
 
@@ -127,6 +140,7 @@ def crypto_analysis_tool():
 
             message_lower = message.lower()
             coins_response = requests.get("https://api.coingecko.com/api/v3/coins/list")
+            coins_response.raise_for_status()
             coins = coins_response.json()
 
             # Explicit mapping of symbols to CoinGecko IDs for priority coins
@@ -150,7 +164,6 @@ def crypto_analysis_tool():
             for symbol, coin_id in symbol_to_id.items():
                 if symbol in message_lower or f"${symbol}" in message_lower:
                     crypto_id = coin_id
-                    # Find the name from the coins list
                     for coin in coins:
                         if coin["id"] == crypto_id:
                             crypto_name = coin["name"]
@@ -174,52 +187,61 @@ def crypto_analysis_tool():
             for attempt in range(max_retries):
                 try:
                     response = requests.get(url, timeout=10)
-                    response.raise_for_status()  # Raise an exception for bad status codes
+                    response.raise_for_status()
                     data = response.json()
                     break
                 except requests.exceptions.RequestException as e:
-                    if attempt == max_retries - 1:  # Last attempt
+                    if attempt == max_retries - 1:
                         return {"summary": "Error fetching crypto data.", "details": f"Failed to fetch data from CoinGecko after {max_retries} attempts: {str(e)}"}
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    time.sleep(2 ** attempt)
 
             if "error" in data:
                 return {"summary": f"API Error: {data['error']}", "details": "Failed to fetch data from CoinGecko."}
 
             if "market_data" not in data:
-                return {"summary": f"Crypto data not found for {crypto_name}.", "details": "Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth')."}
+                return {"summary": f"Crypto data not found for *{crypto_name}*.", "details": "Ensure the name or symbol is correct (e.g., 'bitcoin', 'eth')."}
 
             price = float(data["market_data"]["current_price"]["usd"])
             market_cap = data["market_data"]["market_cap"]["usd"]
             change_percent_24h = float(data["market_data"]["price_change_percentage_24h"])
             volume_24h = data["market_data"]["total_volume"]["usd"]
 
-            # Fetch overall trend (e.g., 7-day change)
             change_percent_7d = float(data["market_data"]["price_change_percentage_7d"]) if "price_change_percentage_7d" in data["market_data"] else "N/A"
             overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
             # Fetch recent news using NewsAPI
             newsapi_key = os.getenv("NEWSAPI_KEY")
-            news_url = f"https://newsapi.org/v2/everything?q={crypto_name}&sortBy=popularity&apiKey={newsapi_key}"
-            news_response = requests.get(news_url)
-            news_data = news_response.json()
+            if not newsapi_key:
+                news_summary = "NewsAPI key is missing. Unable to fetch recent news."
+            else:
+                news_url = f"https://newsapi.org/v2/everything?q={crypto_name}&sortBy=popularity&apiKey={newsapi_key}"
+                try:
+                    news_response = requests.get(news_url)
+                    news_response.raise_for_status()
+                    news_data = news_response.json()
+                    news_summary = "No recent updates that I see at the moment...check back later!"
+                    if news_data and news_data.get("articles"):
+                        for article in news_data["articles"][:1]:
+                            published_at = article["publishedAt"].split("T")[0]
+                            news_summary = (
+                                f"- Title: {article['title']}\n"
+                                f"- Published: {published_at}\n"
+                                f"- Summary: {article['description'][:200] if article['description'] else 'No summary available.'}...\n"
+                                f"- Source: [Read More]({article['url']})\n"
+                            )
+                            break
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 429:
+                        news_summary = "NewsAPI rate limit exceeded (500 requests/day). Please try again later."
+                    else:
+                        news_summary = f"Error fetching news: {str(e)}"
+                except Exception as e:
+                    news_summary = f"Unexpected error fetching news: {str(e)}"
 
-            news_summary = "No new updates that I see at the moment...check back later!"
-            if news_data and news_data.get("articles"):
-                for article in news_data["articles"][:1]:  # Take the most recent/popular article
-                    published_at = article["publishedAt"].split("T")[0]  # Extract date only
-                    news_summary = (
-                        f"- Title: {article['title']}\n"
-                        f"- Published: {published_at}\n"
-                        f"- Summary: {article['description'][:200] if article['description'] else 'No summary available.'}...\n"
-                        f"- Source: [Read More]({article['url']})\n"
-                    )
-                    break
-
-            # If the crypto is Bitcoin, fetch additional data from CoinDesk
+            # Fetch additional data for Bitcoin from CoinDesk
             coindesk_price = None
             historical_trend_30d = "N/A"
             if crypto_id == "bitcoin":
-                # Fetch current price from CoinDesk with retry mechanism
                 coindesk_url = "https://api.coindesk.com/v1/bpi/currentprice/USD.json"
                 for attempt in range(max_retries):
                     try:
@@ -234,7 +256,6 @@ def crypto_analysis_tool():
                             coindesk_price = None
                         time.sleep(2 ** attempt)
 
-                # Fetch historical price (30 days ago) from CoinDesk
                 end_date = datetime.now()
                 start_date = end_date - timedelta(days=30)
                 historical_url = f"https://api.coindesk.com/v1/bpi/historical/close.json?start={start_date.strftime('%Y-%m-%d')}&end={end_date.strftime('%Y-%m-%d')}"
@@ -257,42 +278,46 @@ def crypto_analysis_tool():
                         time.sleep(2 ** attempt)
 
             summary = (
-                f"Crypto Update for {crypto_name.capitalize()}:\n"
-                f"- Price: ${price:.2f}"
+                f"*Crypto Update for {crypto_name.capitalize()}*\n"
+                f"- Price: `${price:.2f}`"
             )
             if coindesk_price:
-                summary += f" (CoinDesk: ${coindesk_price:.2f})"
+                summary += f" (CoinDesk: `${coindesk_price:.2f}`)"
             summary += (
-                f"\n- Market Cap: ${market_cap:,}\n"
-                f"- Volume (24h): ${volume_24h:,}\n"
-                f"- 24h Change: {change_percent_24h:.2f}%\n"
-                f"- 7d Trend: {overall_trend} ({change_percent_7d:.2f}% if available)"
+                f"\n- Market Cap: `${market_cap:,}`\n"
+                f"- Volume (24h): `${volume_24h:,}`\n"
+                f"- 24h Change: `{change_percent_24h:.2f}%`\n"
+                f"- 7d Trend: _{overall_trend}_ (`{change_percent_7d:.2f}%` if available)"
             )
 
             details = (
-                f"Detailed Info for {crypto_name.capitalize()}:\n\n"
+                f"*Detailed Info for {crypto_name.capitalize()}*\n\n"
             )
             if historical_trend_30d != "N/A":
                 details += f"- Historical Trend (30d, CoinDesk): {historical_trend_30d}\n"
             details += (
-                f"\nRecent News:\n{news_summary}\n"
+                f"\n*Recent News*\n{news_summary}\n"
             )
 
             if "price" in message_lower:
-                summary = f"Crypto Price for {crypto_name.capitalize()}: ${price:.2f}"
+                summary = f"*Crypto Price for {crypto_name.capitalize()}*: `${price:.2f}`"
                 if coindesk_price:
-                    summary += f" (CoinDesk: ${coindesk_price:.2f})"
+                    summary += f" (CoinDesk: `${coindesk_price:.2f}`)"
             elif "volume" in message_lower:
-                summary = f"Crypto Volume (24h) for {crypto_name.capitalize()}: ${volume_24h:,}"
+                summary = f"*Crypto Volume (24h) for {crypto_name.capitalize()}*: `${volume_24h:,}`"
             elif "change" in message_lower or "trajectory" in message_lower:
-                summary = f"Crypto 24h Change for {crypto_name.capitalize()}: {change_percent_24h:.2f}%"
+                summary = f"*Crypto 24h Change for {crypto_name.capitalize()}*: `{change_percent_24h:.2f}%`"
             elif "trend" in message_lower:
-                summary = f"Crypto 7d Trend for {crypto_name.capitalize()}: {overall_trend} ({change_percent_7d:.2f}% if available)"
+                summary = f"*Crypto 7d Trend for {crypto_name.capitalize()}*: _{overall_trend}_ (`{change_percent_7d:.2f}%` if available)"
 
             result = {"summary": summary, "details": details}
             crypto_cache[cache_key] = result
             return result
 
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                return {"summary": "API rate limit exceeded for crypto data.", "details": "CoinGecko API limit reached (~50-100 requests/minute). Please try again later."}
+            return {"summary": "Error fetching crypto data.", "details": str(e)}
         except Exception as e:
             return {"summary": "Error fetching crypto data.", "details": str(e)}
 
@@ -305,6 +330,10 @@ def crypto_analysis_tool():
 def market_news_tool():
     def summarize_news(message):
         try:
+            cache_key = "market_news"
+            if cache_key in news_cache:
+                return news_cache[cache_key]
+
             time.sleep(1)
             topic = "stock market" if "stock" in message.lower() else "crypto market"
             fmp_api_key = os.getenv("FMP_API_KEY")
@@ -313,6 +342,7 @@ def market_news_tool():
 
             url = f"https://financialmodelingprep.com/api/v3/stock_news?limit=1&apikey={fmp_api_key}"
             response = requests.get(url)
+            response.raise_for_status()
             data = response.json()
 
             if not data or "error" in data:
@@ -320,7 +350,7 @@ def market_news_tool():
 
             latest_news = data[0]
             summary = (
-                f"Market News ({topic}):\n"
+                f"*Market News ({topic})*\n"
                 f"- Title: {latest_news['title']}\n"
                 f"- Published: {latest_news['publishedDate']}"
             )
@@ -328,8 +358,15 @@ def market_news_tool():
                 f"- Summary: {latest_news['text'][:200]}...\n"
                 f"- Source: [Read More]({latest_news['url']})\n"
             )
-            return {"summary": summary, "details": details}
 
+            result = {"summary": summary, "details": details}
+            news_cache[cache_key] = result
+            return result
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                return {"summary": "API rate limit exceeded for market news.", "details": "FMP API limit reached (250 requests/day). Please try again later."}
+            return {"summary": "Error fetching market news.", "details": str(e)}
         except Exception as e:
             return {"summary": "Error fetching market news.", "details": str(e)}
 
@@ -354,8 +391,8 @@ def general_query_tool():
                     {"role": "user", "content": message}
                 ]
             )
-            summary = f"General Query Response:\n- Answer: {response.content[0].text[:100]}..."
-            details = f"Full Answer: {response.content[0].text}"
+            summary = f"*General Query Response*\n- Answer: {response.content[0].text[:100]}..."
+            details = f"*Full Answer*\n{response.content[0].text}"
             return {"summary": summary, "details": details}
         except AnthropicError as e:
             return {"summary": "Error processing general query.", "details": str(e)}
