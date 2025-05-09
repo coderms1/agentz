@@ -475,19 +475,38 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                parse_mode="Markdown")
                 return
             try:
-                # Fetch token details from Etherscan
-                url = f"https://api.etherscan.io/api?module=token&action=tokeninfo&contractaddress={address}&apikey={ETHERSCAN_API_KEY}"
+                # First, verify the contract exists using getsourcecode
+                url = f"https://api.etherscan.io/api?module=contract&action=getsourcecode&address={address}&apikey={ETHERSCAN_API_KEY}"
                 response = requests.get(url)
                 response.raise_for_status()
                 data = response.json()
-                if data["status"] != "1":
-                    await query.message.reply_text(f"❌ Could not fetch token details for {address} on Ethereum.",
+                if data["status"] != "1" or not data["result"]:
+                    await query.message.reply_text(f"❌ Could not verify contract at {address} on Ethereum.",
                                                    parse_mode="Markdown")
                     return
 
-                token_name = data["result"]["tokenName"]
-                token_symbol = data["result"]["symbol"]
-                summary = f"*Token Details (Ethereum)*\n- Name: {token_name}\n- Symbol: {token_symbol}\n- Contract Address: {address}"
+                contract_info = data["result"][0]
+                contract_name = contract_info.get("ContractName", "Unknown Contract")
+
+                # Fallback token info (since Etherscan doesn't directly provide token metadata)
+                # We'll use a simple lookup for well-known tokens; for full metadata, we'd need web3.py or another API
+                known_tokens = {
+                    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {"name": "USD Coin", "symbol": "USDC"},
+                    "0xdac17f958d2ee523a2206206994597c13d831ec7": {"name": "Tether USD", "symbol": "USDT"}
+                }
+                token_info = known_tokens.get(address.lower(), {"name": contract_name, "symbol": "Unknown"})
+                token_name = token_info["name"]
+                token_symbol = token_info["symbol"]
+
+                # Fetch additional details (e.g., creator) if available
+                creator_address = contract_info.get("CreatorAddress", "Unknown")
+                summary = (
+                    f"*Token Details (Ethereum)*\n"
+                    f"- Name: {token_name}\n"
+                    f"- Symbol: {token_symbol}\n"
+                    f"- Contract Address: {address}\n"
+                    f"- Creator: {creator_address}"
+                )
                 user_data[user_id]["last_analyzed"] = token_symbol
                 user_data[user_id]["last_query_type"] = "crypto"
                 user_data[user_id]["last_detailed_info"] = summary
@@ -581,12 +600,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             token_name = "Unknown Token"
             if ETHERSCAN_API_KEY:
                 try:
-                    url = f"https://api.etherscan.io/api?module=token&action=tokeninfo&contractaddress={message_text}&apikey={ETHERSCAN_API_KEY}"
+                    url = f"https://api.etherscan.io/api?module=contract&action=getsourcecode&address={message_text}&apikey={ETHERSCAN_API_KEY}"
                     response = requests.get(url)
                     response.raise_for_status()
                     data = response.json()
-                    if data["status"] == "1":
-                        token_name = data["result"]["tokenName"]
+                    if data["status"] == "1" and data["result"]:
+                        contract_info = data["result"][0]
+                        contract_name = contract_info.get("ContractName", "Unknown Contract")
+                        # Fallback token info
+                        known_tokens = {
+                            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {"name": "USD Coin", "symbol": "USDC"},
+                            "0xdac17f958d2ee523a2206206994597c13d831ec7": {"name": "Tether USD", "symbol": "USDT"}
+                        }
+                        token_info = known_tokens.get(message_text.lower(),
+                                                      {"name": contract_name, "symbol": "Unknown"})
+                        token_name = token_info["name"]
                 except:
                     pass
             reply_markup = InlineKeyboardMarkup([
