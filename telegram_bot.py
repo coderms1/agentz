@@ -6,13 +6,22 @@ import base58  # For Solana address validation
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime, timedelta
+import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.error import BadRequest
 from market_strategist import MarketStrategist
 from tools import stock_analysis_tool, crypto_analysis_tool, market_news_tool, general_query_tool
 from guardrails import safe_process
 import uvicorn
 from fastapi import FastAPI, Request
+
+# Set up logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -42,6 +51,14 @@ app = FastAPI()
 
 # Define application globally
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+
+# Error handler to catch and log exceptions
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.error(f"Update {update} caused error: {context.error}", exc_info=context.error)
+    if update and (update.message or (update.callback_query and update.callback_query.message)):
+        message = update.message or update.callback_query.message
+        await message.reply_text("❌ An error occurred. Please try again or use /start to reset.", parse_mode="Markdown")
 
 
 # Start command to show the menu
@@ -290,7 +307,6 @@ async def random_market_news(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # Handle button clicks
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     user_id = query.from_user.id
 
     if user_id not in user_data:
@@ -305,6 +321,22 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "pending_address": None,
             "pending_blockchain": None
         }
+
+    # Try to answer the callback query, handle timeout/invalid query
+    try:
+        await query.answer()
+    except BadRequest as e:
+        if "query is too old" in str(e).lower() or "query id is invalid" in str(e).lower():
+            await query.message.reply_text(
+                "⏰ This action has timed out. Please try again by entering the ticker or address.",
+                parse_mode="Markdown"
+            )
+        else:
+            await query.message.reply_text(
+                "❌ An error occurred while processing your action. Please try again.",
+                parse_mode="Markdown"
+            )
+        return
 
     callback_data = query.data
 
@@ -836,6 +868,7 @@ async def main():
         application.add_handler(CommandHandler(asset, quick_analyze))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button))
+    application.add_error_handler(error_handler)  # Register the error handler
 
     if ENVIRONMENT == "production":
         if not WEBHOOK_URL:
