@@ -1,17 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>🧠 Swarm Command Center</title>
+    <meta charset="UTF-8">
+    <title>Swarm Command Center</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <h1>🧠 Swarm Command Center</h1>
 
-        <!-- 🔹 Get Price Form -->
+        <!-- 🔹 GET PRICE FORM -->
         <form method="post" action="/get-price">
-            <label for="coin_symbol">Get Price for Coin (Symbol): </label><br>
-            <input type="text" id="coin_symbol" name="coin_symbol" placeholder="e.g. BTC, ETH, SUI"><br>
+            <label for="coin_symbol">Get Price for Coin (Symbol):</label><br>
+            <input type="text" id="coin_symbol" name="coin_symbol" placeholder="e.g. BTC, ETH, SUI" required><br>
             <button type="submit">📊 Get Price</button>
         </form>
 
@@ -21,17 +22,17 @@
 
         <hr>
 
-        <!-- 🔸 Question Form -->
+        <!-- 🔸 ASK QUESTION FORM -->
         <form method="post" action="/ask">
             <label for="agent">What kind of question do you have?</label><br>
-            <select name="agent" id="agent">
+            <select name="agent" id="agent" required>
                 <option value="strategist">📉 Market Trends</option>
                 <option value="whale">🐋 Whale Activity</option>
                 <option value="alpha">🧠 Alpha Intel</option>
-            </select><br>
+            </select>
 
             <label for="question">📝 Question:</label><br>
-            <input type="text" id="question" name="question" placeholder="e.g. is sol trending?"><br>
+            <input type="text" id="question" name="question" placeholder="e.g. Is Sol trending?" required><br>
             <button type="submit">📡 Deploy Intelligence</button>
         </form>
 
