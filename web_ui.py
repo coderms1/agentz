@@ -13,7 +13,7 @@ from price_fetcher import get_price
 app = FastAPI()
 
 AGENTS = {
-    "strategist": MarketStrategist(),
+    "trend": MarketStrategist(),
     "whale": WhaleWatcher(),
     "alpha": AlphaFeeder()
 }
@@ -26,21 +26,21 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/ask", response_class=HTMLResponse)
-async def ask(request: Request, question: str = Form(...), agent: str = Form(...)):
-    selected_agent = AGENTS.get(agent, AGENTS["strategist"])
-
+async def ask(
+    request: Request,
+    question: str = Form(...),
+    category: str = Form(...)
+):
+    selected_agent = AGENTS.get(category, AGENTS["trend"])
     try:
-        # Check if question is about price
-        if "price" in question.lower() or "$" in question:
+        if "price" in question.lower():
             summary = get_price(question)
         else:
             response = safe_process(selected_agent, question)
-            summary = response["summary"]
+            summary = response.get("summary", "🤖 No response generated.")
             log_query(agent_name=selected_agent.name, question=question, response=summary)
-
     except Exception as e:
-        summary = f"⚠️ Crypto analysis error: {str(e)}"
-        print(f"[ERROR] {e}")
+        summary = f"⚠️ Something went wrong: {str(e)}"
 
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -48,15 +48,10 @@ async def ask(request: Request, question: str = Form(...), agent: str = Form(...
         "response": summary
     })
 
-@app.post("/get-price", response_class=HTMLResponse)
-async def get_price_route(request: Request, coin_symbol: str = Form(...)):
-    try:
-        summary = get_price(coin_symbol)
-    except Exception as e:
-        summary = f"⚠️ Error: {str(e)}"
-        print(f"[ERROR] {e}")
-
+@app.post("/price", response_class=HTMLResponse)
+async def get_coin_price(request: Request, symbol: str = Form(...)):
+    summary = get_price(symbol)
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "price_result": summary
+        "price_summary": summary
     })

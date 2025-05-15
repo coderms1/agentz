@@ -2,42 +2,43 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Swarm Command Center</title>
+    <title>🧠 Swarm Command Center</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <h1>🧠 Swarm Command Center</h1>
 
-        <!-- 🔹 GET PRICE FORM -->
-        <form method="post" action="/get-price">
-            <label for="coin_symbol">Get Price for Coin (Symbol):</label><br>
-            <input type="text" id="coin_symbol" name="coin_symbol" placeholder="e.g. BTC, ETH, SUI" required><br>
+        <form method="post" action="/price">
+            <label for="symbol">Get Price for Coin (Symbol):</label><br>
+            <input type="text" id="symbol" name="symbol" placeholder="e.g. BTC, ETH, SUI"><br>
             <button type="submit">📊 Get Price</button>
         </form>
 
-        {% if price_result %}
-            <p><strong>📈 Live Price:</strong> {{ price_result }}</p>
+        {% if price_summary %}
+        <p><strong>📈 Live Price:</strong> {{ price_summary }}</p>
         {% endif %}
 
         <hr>
 
-        <!-- 🔸 ASK QUESTION FORM -->
         <form method="post" action="/ask">
-            <label for="agent">What kind of question do you have?</label><br>
-            <select name="agent" id="agent" required>
-                <option value="strategist">📉 Market Trends</option>
+            <label for="category">What kind of question do you have?</label><br>
+            <select name="category" id="category">
+                <option value="trend">📉 Market Trends</option>
                 <option value="whale">🐋 Whale Activity</option>
-                <option value="alpha">🧠 Alpha Intel</option>
-            </select>
+                <option value="alpha">🧠 Alpha Signals</option>
+            </select><br><br>
 
             <label for="question">📝 Question:</label><br>
-            <input type="text" id="question" name="question" placeholder="e.g. Is Sol trending?" required><br>
+            <input type="text" id="question" name="question" placeholder="e.g. Is Sol trending?"><br>
             <button type="submit">📡 Deploy Intelligence</button>
         </form>
 
+        {% if question %}
+        <p><strong>📝 Question:</strong> {{ question }}</p>
+        {% endif %}
         {% if response %}
-            <p><strong>📡 Response:</strong> {{ response }}</p>
+        <p><strong>📡 Response:</strong> {{ response }}</p>
         {% endif %}
     </div>
 </body>
