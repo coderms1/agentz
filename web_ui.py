@@ -8,12 +8,11 @@ from whale_watcher import WhaleWatcher
 from alpha_feeder import AlphaFeeder
 from guardrails import safe_process
 from db_logger import log_query
-from price_fetcher import get_price
 
 app = FastAPI()
 
 AGENTS = {
-    "trend": MarketStrategist(),
+    "strategist": MarketStrategist(),
     "whale": WhaleWatcher(),
     "alpha": AlphaFeeder()
 }
@@ -29,29 +28,20 @@ async def index(request: Request):
 async def ask(
     request: Request,
     question: str = Form(...),
-    category: str = Form(...)
+    agent: str = Form("strategist")
 ):
-    selected_agent = AGENTS.get(category, AGENTS["trend"])
+    selected_agent = AGENTS.get(agent, AGENTS["strategist"])
     try:
-        if "price" in question.lower():
-            summary = get_price(question)
-        else:
-            response = safe_process(selected_agent, question)
-            summary = response.get("summary", "🤖 No response generated.")
-            log_query(agent_name=selected_agent.name, question=question, response=summary)
+        response = safe_process(selected_agent, question)
+        summary = response["summary"]
+        log_query(agent_name=selected_agent.name, question=question, response=summary)
     except Exception as e:
-        summary = f"⚠️ Something went wrong: {str(e)}"
+        summary = "⚠️ Oops. Couldn’t answer that one. Try rephrasing or check CoinGecko or DexScreener."
+        print(f"[ERROR] {e}")
 
     return templates.TemplateResponse("index.html", {
         "request": request,
         "question": question,
+        "agent": agent,
         "response": summary
-    })
-
-@app.post("/price", response_class=HTMLResponse)
-async def get_coin_price(request: Request, symbol: str = Form(...)):
-    summary = get_price(symbol)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "price_summary": summary
     })
