@@ -43,63 +43,52 @@ app = FastAPI()
 # Define application globally
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-
 # Error handler to catch and log exceptions
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Update {update} caused error: {context.error}", exc_info=context.error)
     if update and update.message:
-        await update.message.reply_text("❌ An error occurred. Please try again or use /start to reset.",
-                                        parse_mode="Markdown")
-
+        await update.message.reply_text("❌ An error occurred. Please try again or use /start to reset.", parse_mode="Markdown")
 
 # Start command to provide instructions
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     welcome_message = (
         f"👋 Hi {user_name}! I’m *MarketStrategistBot*, your crypto lookup assistant! 📈\n"
-        "I can help you find crypto info quickly.\n"
-        "- Use commands like /eth or /doge for ticker lookups.\n"
-        "- Enter a contract address (e.g., 0x... for Ethereum, or a Solana address) to get token details.\n"
+        "I can help you find basic crypto info quickly.\n"
+        "- For ticker lookups, use a /ticker command (e.g., /ETH, /DOGE).\n"
+        "- For contract addresses, paste the address (e.g., 0x... for Ethereum, or a Solana address).\n"
         "Type /help for more info!"
     )
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
-
 
 # Help command with instructions
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_message = (
         "💡 *How to Use MarketStrategistBot*\n\n"
-        "I’m here to help you find crypto info quickly!\n"
-        "- *Ticker Lookup*: Use commands like /eth or /doge, or just type the ticker (e.g., BTC).\n"
-        "- *Contract Address Lookup*: Enter a contract address (e.g., 0x... for Ethereum, or a Solana address) to get token details.\n"
+        "I’m here to help you find basic crypto info quickly!\n"
+        "- *Ticker Lookup*: Use a /ticker command (e.g., /ETH, /DOGE).\n"
+        "- *Contract Address Lookup*: Paste a contract address (e.g., 0x... for Ethereum, or a Solana address).\n"
         "That’s it! Let’s find some crypto info! 📈"
     )
     await update.message.reply_text(help_message, parse_mode="Markdown")
 
-
-# Quick analysis commands (e.g., /eth, /doge)
+# Quick analysis commands (e.g., /ETH, /DOGE)
 async def quick_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    command = update.message.text[1:].lower()  # Remove the "/" (e.g., /eth -> eth)
+    command = update.message.text[1:].lower()  # Remove the "/" (e.g., /ETH -> eth)
     if not command:
-        await update.message.reply_text("Please provide a ticker (e.g., /eth, /doge).", parse_mode="Markdown")
+        await update.message.reply_text("Please provide a ticker (e.g., /ETH, /DOGE).", parse_mode="Markdown")
         return
 
-    # Normalize command (remove $ if present)
-    command_clean = command.replace("$", "")
-
     # Process the command
-    response = safe_process(strategist, command_clean)
+    response = safe_process(strategist, command)
     if "Error" in response["summary"]:
-        response[
-            "summary"] += "\n\nPlease try a recognized crypto like Bitcoin, Ethereum, Solana, Polkadot, Avalanche, Chainlink, Injective, or Sui."
+        response["summary"] += "\n\nPlease try a recognized crypto like /BTC, /ETH, /SOL, /DOT, /AVAX, /LINK, /INJ, /SUI, /ADA, /XRP, or /DOGE."
     elif "API rate limit" in response["summary"].lower():
-        response[
-            "summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., ~50-100 requests/minute for CoinGecko). Please try again later."
-
+        response["summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., ~50-100 requests/minute for CoinGecko). Please try again later."
+    
     await update.message.reply_text(response["summary"], parse_mode="Markdown")
 
-
-# Handle user messages for tickers or contract addresses
+# Handle user messages for contract addresses
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_text = update.message.text.strip()
 
@@ -112,8 +101,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check for Ethereum address
     if re.match(eth_address_pattern, message_text):
         if not ETHERSCAN_API_KEY:
-            await update.message.reply_text("❌ Etherscan API key is missing. Unable to fetch contract details.",
-                                            parse_mode="Markdown")
+            await update.message.reply_text("❌ Etherscan API key is missing. Unable to fetch contract details.", parse_mode="Markdown")
             return
         try:
             # Verify the contract exists using getsourcecode
@@ -122,8 +110,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             response.raise_for_status()
             data = response.json()
             if data["status"] != "1" or not data["result"]:
-                await update.message.reply_text(f"❌ Could not verify contract at {message_text} on Ethereum.",
-                                                parse_mode="Markdown")
+                await update.message.reply_text(f"❌ Could not verify contract at {message_text} on Ethereum.", parse_mode="Markdown")
                 return
 
             contract_info = data["result"][0]
@@ -160,8 +147,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             base58.decode(message_text)  # Will raise an exception if not a valid Base58 string
             if not SOLSCAN_API_KEY:
-                await update.message.reply_text("❌ Solscan API key is missing. Unable to fetch contract details.",
-                                                parse_mode="Markdown")
+                await update.message.reply_text("❌ Solscan API key is missing. Unable to fetch contract details.", parse_mode="Markdown")
                 return
             try:
                 # Fetch token details from Solscan
@@ -171,8 +157,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 response.raise_for_status()
                 data = response.json()
                 if "data" not in data or not data["data"]:
-                    await update.message.reply_text(f"❌ Could not fetch token details for {message_text} on Solana.",
-                                                    parse_mode="Markdown")
+                    await update.message.reply_text(f"❌ Could not fetch token details for {message_text} on Solana.", parse_mode="Markdown")
                     return
 
                 token_data = data["data"]
@@ -193,25 +178,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass  # Not a valid Solana address
 
-    # If not a contract address, assume it's a ticker and process it
-    ticker_pattern = r"^\$?[A-Za-z]{1,5}$"
-    if re.match(ticker_pattern, message_text):
-        ticker = message_text.replace("$", "").lower()
-        response = safe_process(strategist, ticker)
-        if "Error" in response["summary"]:
-            response[
-                "summary"] += "\n\nPlease try a recognized crypto like Bitcoin, Ethereum, Solana, Polkadot, Avalanche, Chainlink, Injective, or Sui."
-        elif "API rate limit" in response["summary"].lower():
-            response[
-                "summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., ~50-100 requests/minute for CoinGecko). Please try again later."
-        await update.message.reply_text(response["summary"], parse_mode="Markdown")
-        return
-
-    # If input doesn't match ticker or contract address, prompt the user
+    # If input doesn't match contract address, return error message
     await update.message.reply_text(
-        "Please use a command like /eth or /doge, or enter a valid ticker (e.g., BTC) or contract address (e.g., 0x... for Ethereum, or a Solana address).",
-        parse_mode="Markdown")
-
+        "I don’t recognize this, please send a CA or use /ticker (e.g., /ETH).",
+        parse_mode="Markdown"
+    )
 
 # Webhook route
 @app.post("/webhook")
@@ -220,17 +191,15 @@ async def webhook(request: Request):
     await application.process_update(update)
     return {"status": "ok"}
 
-
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
-
 
 # Main function to run the bot
 async def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    # Add quick analysis commands for popular assets
+    # Add ticker commands for popular assets
     popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
     for asset in popular_assets:
         application.add_handler(CommandHandler(asset, quick_analyze))
@@ -249,7 +218,6 @@ async def main():
         await application.start()
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         await asyncio.Event().wait()
-
 
 if __name__ == "__main__":
     asyncio.run(main())
