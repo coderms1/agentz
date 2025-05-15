@@ -27,20 +27,17 @@ async def index(request: Request):
 @app.post("/ask", response_class=HTMLResponse)
 async def ask(request: Request, question: str = Form(...), agent: str = Form(...)):
     selected_agent = AGENTS.get(agent, AGENTS["strategist"])
-    error_message = None
 
     try:
         response = safe_process(selected_agent, question)
         summary = response["summary"]
         log_query(agent_name=selected_agent.name, question=question, response=summary)
     except Exception as e:
-        summary = None
-        error_message = "⚠️ Something went wrong. Please try again later."
-        print(f"Error processing query: {e}")
+        summary = f"⚠️ Crypto analysis error: {str(e)}"
+        print(f"[ERROR] {e}")
 
     return templates.TemplateResponse("index.html", {
         "request": request,
         "question": question,
-        "response": summary,
-        "error": error_message
+        "response": summary
     })
