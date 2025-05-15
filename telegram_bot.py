@@ -8,7 +8,7 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from market_strategist import MarketStrategist
-from tools import crypto_analysis_tool, general_query_tool
+from data_fetcher import DataFetcher
 from guardrails import safe_process
 import uvicorn
 from fastapi import FastAPI, Request
@@ -28,14 +28,8 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 SOLSCAN_API_KEY = os.getenv("SOLSCAN_API_KEY")
 
-# Initialize the Market Strategist bot (keep general_query_tool for future use)
-strategist = MarketStrategist(
-    name="MarketStrategistBot",
-    tools=[
-        crypto_analysis_tool(),
-        general_query_tool()
-    ]
-)
+# Initialize the Data Fetcher
+data_fetcher = DataFetcher(etherscan_api_key=ETHERSCAN_API_KEY, solscan_api_key=SOLSCAN_API_KEY)
 
 # FastAPI app for webhook
 app = FastAPI()
@@ -79,13 +73,8 @@ async def quick_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Please provide a ticker (e.g., /ETH, /DOGE).", parse_mode="Markdown")
         return
 
-    # Process the command
-    response = safe_process(strategist, command)
-    if "Error" in response["summary"]:
-        response["summary"] += "\n\nPlease try a recognized crypto like /BTC, /ETH, /SOL, /DOT, /AVAX, /LINK, /INJ, /SUI, /ADA, /XRP, or /DOGE."
-    elif "API rate limit" in response["summary"].lower():
-        response["summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., ~50-100 requests/minute for CoinGecko). Please try again later."
-    
+    # Fetch data using the Data Fetcher
+    response = data_fetcher.fetch_crypto_data(command)
     await update.message.reply_text(response["summary"], parse_mode="Markdown")
 
 # Handle user messages for contract addresses
@@ -103,78 +92,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not ETHERSCAN_API_KEY:
             await update.message.reply_text("❌ Etherscan API key is missing. Unable to fetch contract details.", parse_mode="Markdown")
             return
-        try:
-            # Verify the contract exists using getsourcecode
-            url = f"https://api.etherscan.io/api?module=contract&action=getsourcecode&address={message_text}&apikey={ETHERSCAN_API_KEY}"
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            if data["status"] != "1" or not data["result"]:
-                await update.message.reply_text(f"❌ Could not verify contract at {message_text} on Ethereum.", parse_mode="Markdown")
-                return
-
-            contract_info = data["result"][0]
-            contract_name = contract_info.get("ContractName", "Unknown Contract")
-
-            # Fallback token info
-            known_tokens = {
-                "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {"name": "USD Coin", "symbol": "USDC"},
-                "0xdac17f958d2ee523a2206206994597c13d831ec7": {"name": "Tether USD", "symbol": "USDT"}
-            }
-            token_info = known_tokens.get(message_text.lower(), {"name": contract_name, "symbol": "Unknown"})
-            token_name = token_info["name"]
-            token_symbol = token_info["symbol"]
-
-            # Fetch additional details (e.g., creator) if available
-            creator_address = contract_info.get("CreatorAddress", "Unknown")
-            summary = (
-                f"*Token Details (Ethereum)*\n"
-                f"- Name: {token_name}\n"
-                f"- Symbol: {token_symbol}\n"
-                f"- Contract Address: {message_text}\n"
-                f"- Creator: {creator_address}"
-            )
-            await update.message.reply_text(summary, parse_mode="Markdown")
-            return
-
-        except requests.exceptions.RequestException as e:
-            await update.message.reply_text(f"❌ Error fetching contract details: {str(e)}", parse_mode="Markdown")
-            return
+        response = data_fetcher.fetch_ethereum_contract(message_text)
+        await update.message.reply_text(response["summary"], parse_mode="Markdown")
+        return
 
     # Check for Solana address
     if re.match(sol_address_pattern, message_text):
-        # Validate Solana address using base58
         try:
             base58.decode(message_text)  # Will raise an exception if not a valid Base58 string
             if not SOLSCAN_API_KEY:
                 await update.message.reply_text("❌ Solscan API key is missing. Unable to fetch contract details.", parse_mode="Markdown")
                 return
-            try:
-                # Fetch token details from Solscan
-                headers = {"Authorization": f"Bearer {SOLSCAN_API_KEY}"}
-                url = f"https://api-v2.solscan.io/v2/token/meta?address={message_text}"
-                response = requests.get(url, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                if "data" not in data or not data["data"]:
-                    await update.message.reply_text(f"❌ Could not fetch token details for {message_text} on Solana.", parse_mode="Markdown")
-                    return
-
-                token_data = data["data"]
-                token_name = token_data.get("name", "Unknown Token")
-                token_symbol = token_data.get("symbol", "Unknown")
-                summary = (
-                    f"*Token Details (Solana)*\n"
-                    f"- Name: {token_name}\n"
-                    f"- Symbol: {token_symbol}\n"
-                    f"- Contract Address: {message_text}"
-                )
-                await update.message.reply_text(summary, parse_mode="Markdown")
-                return
-
-            except requests.exceptions.RequestException as e:
-                await update.message.reply_text(f"❌ Error fetching contract details: {str(e)}", parse_mode="Markdown")
-                return
+            response = data_fetcher.fetch_solana_contract(message_text)
+            await update.message.reply_text(response["summary"], parse_mode="Markdown")
+            return
         except ValueError:
             pass  # Not a valid Solana address
 
