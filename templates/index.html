@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Swarm Command Center</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            max-width: 600px;
+            margin: auto;
+            padding: 40px;
+        }
+        h1 {
+            color: #58a6ff;
+        }
+        form {
+            margin-top: 20px;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #238636;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        .response {
+            margin-top: 30px;
+            background-color: #161b22;
+            padding: 20px;
+            border-left: 4px solid #58a6ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 Swarm Command Center</h1>
+    <form action="/ask" method="post">
+        <label for="question">Ask a question:</label><br>
+        <input type="text" id="question" name="question" value="{{ question or '' }}" required><br>
+
+        <label for="agent">Choose your agent:</label><br>
+        <select id="agent" name="agent">
+            <option value="strategist" {% if agent == 'strategist' %}selected{% endif %}>MarketStrategist</option>
+            <option value="whale" {% if agent == 'whale' %}selected{% endif %}>WhaleWatcher</option>
+            <option value="alpha" {% if agent == 'alpha' %}selected{% endif %}>AlphaFeeder</option>
+        </select><br>
+
+        <button type="submit">Deploy Intelligence</button>
+    </form>
+
+    {% if response %}
+    <div class="response">
+        <h3>📡 Response:</h3>
+        <p>{{ response }}</p>
+    </div>
+    {% endif %}
+</body>
+</html>

@@ -1,5 +1,6 @@
 from swarm_agent import SwarmAgent
-from tools import crypto_analysis_tool, general_query_tool
+from tools.crypto import crypto_analysis_tool
+from tools.general import general_query_tool
 
 class MarketStrategist(SwarmAgent):
     def __init__(self):
