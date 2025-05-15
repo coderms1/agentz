@@ -204,3 +204,35 @@ class DataFetcher:
 
         except requests.exceptions.RequestException as e:
             return {"summary": f"❌ Error fetching contract details: {str(e)}", "details": ""}
+        
+    def fetch_sui_contract(self, address):
+            """Fetch SUI contract metadata using Suiscan.io"""
+            cache_key = f"sui_contract_{address.lower()}"
+            if cache_key in contract_cache:
+                logger.info(f"Returning cached SUI contract data for {address}")
+                return contract_cache[cache_key]
+
+            logger.info(f"Fetching SUI contract data for {address}")
+            try:
+                url = f"https://api.suiscan.xyz/v1/contracts/{address}"
+                headers = {"accept": "application/json"}
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+
+                token_name = data.get("name", "Unknown")
+                token_symbol = data.get("symbol", "Unknown")
+
+                summary = (
+                    f"* 🧪 Token Details (SUI)*\n"
+                    f"- 🪪 Name: {token_name}\n"
+                    f"- ©️ Symbol: {token_symbol}\n"
+                    f"- 📔 Contract Address: {address}"
+                )
+
+                result = {"summary": summary, "details": ""}
+                contract_cache[cache_key] = result
+                return result
+
+            except requests.exceptions.RequestException as e:
+                return {"summary": f"❌ Error fetching SUI contract: {str(e)}", "details": ""}
