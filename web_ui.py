@@ -31,12 +31,7 @@ async def ask(request: Request, question: str = Form(...), agent: str = Form(...
 
     try:
         if "price" in question.lower():
-            if "bitcoin" in question.lower():
-                summary = get_price("bitcoin")
-            elif "ethereum" in question.lower() or "eth" in question.lower():
-                summary = get_price("ethereum")
-            else:
-                summary = get_price()  # default fallback
+            summary = get_price(question)
         else:
             response = safe_process(selected_agent, question)
             summary = response["summary"]
