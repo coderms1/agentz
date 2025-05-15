@@ -11,14 +11,12 @@ from db_logger import log_query
 
 app = FastAPI()
 
-# Load agents
 AGENTS = {
     "strategist": MarketStrategist(),
     "whale": WhaleWatcher(),
     "alpha": AlphaFeeder()
 }
 
-# Static + templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -28,28 +26,21 @@ async def index(request: Request):
 
 @app.post("/ask", response_class=HTMLResponse)
 async def ask(request: Request, question: str = Form(...), agent: str = Form(...)):
-    # Try smart routing based on content
-    selected_agent = None
-    for agent_instance in AGENTS.values():
-        for tool in agent_instance.tools:
-            if tool["trigger"](question):
-                selected_agent = agent_instance
-                break
-        if selected_agent:
-            break
+    selected_agent = AGENTS.get(agent, AGENTS["strategist"])
+    error_message = None
 
-    # Fallback: user-selected agent
-    if not selected_agent:
-        selected_agent = AGENTS.get(agent, AGENTS["strategist"])
-
-    response = safe_process(selected_agent, question)
-
-    # Log the actual responding agent
-    log_query(agent_name=selected_agent.name, question=question, response=response["summary"])
+    try:
+        response = safe_process(selected_agent, question)
+        summary = response["summary"]
+        log_query(agent_name=selected_agent.name, question=question, response=summary)
+    except Exception as e:
+        summary = None
+        error_message = "⚠️ Something went wrong. Please try again later."
+        print(f"Error processing query: {e}")
 
     return templates.TemplateResponse("index.html", {
         "request": request,
         "question": question,
-        "agent": agent,
-        "response": response["summary"]
+        "response": summary,
+        "error": error_message
     })
