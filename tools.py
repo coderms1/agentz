@@ -60,15 +60,26 @@ def crypto_analysis_tool():
             if not crypto_id:
                 return {"summary": "Error: Could not identify cryptocurrency.", "details": "Please specify a valid crypto ticker (e.g., /ETH)."}
 
-            # Fetch data from CoinGecko with retry mechanism
+            # Fetch data from CoinGecko with retry mechanism for rate limits
             url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}?localization=false&tickers=false&market_data=true"
             max_retries = 3
+            initial_wait_time = 1  # Start with 1 second
             for attempt in range(max_retries):
                 try:
                     response = requests.get(url, timeout=10)
                     response.raise_for_status()
                     data = response.json()
                     break
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 429:  # Rate limit exceeded
+                        if attempt == max_retries - 1:
+                            return {"summary": "API rate limit exceeded for crypto data after retries.", "details": "Please try again later."}
+                        wait_time = initial_wait_time * (2 ** attempt)  # Exponential backoff: 1s, 2s, 4s
+                        time.sleep(wait_time)
+                    else:
+                        if attempt == max_retries - 1:
+                            return {"summary": "Error fetching crypto data.", "details": f"Failed to fetch data from CoinGecko after {max_retries} attempts: {str(e)}"}
+                        time.sleep(2 ** attempt)
                 except requests.exceptions.RequestException as e:
                     if attempt == max_retries - 1:
                         return {"summary": "Error fetching crypto data.", "details": f"Failed to fetch data from CoinGecko after {max_retries} attempts: {str(e)}"}
