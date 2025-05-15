@@ -240,87 +240,87 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 dex_response = requests.get(dex_url)
                 dex_response.raise_for_status()
                 dex_data = dex_response.json()
-                price_usd = "N/A"
-                fdv = "N/A"
-                liquidity_usd = "N/A"
-                volume_24h = "N/A"
-                if dex_data.get("pairs"):
-                    pair = dex_data["pairs"][0]  # Pick the first pair (highest liquidity)
-                    price_usd = float(pair["priceUsd"]) if "priceUsd" in pair else "N/A"
-                    fdv = int(float(pair["fdv"])) if "fdv" in pair else "N/A"
-                    liquidity_usd = int(float(pair["liquidity"]["usd"])) if "liquidity" in pair and "usd" in pair["liquidity"] else "N/A"
-                    volume_24h = int(float(pair["volume"]["h24"])) if "volume" in pair and "h24" in pair["volume"] else "N/A"
+        price_usd = "N/A"
+        fdv = "N/A"
+        liquidity_usd = "N/A"
+        volume_24h = "N/A"
+        if dex_data.get("pairs"):
+            pair = dex_data["pairs"][0]  # Pick the first pair (highest liquidity)
+            price_usd = float(pair["priceUsd"]) if "priceUsd" in pair else "N/A"
+            fdv = int(float(pair["fdv"])) if "fdv" in pair else "N/A"
+            liquidity_usd = int(float(pair["liquidity"]["usd"])) if "liquidity" in pair and "usd" in pair["liquidity"] else "N/A"
+            volume_24h = int(float(pair["volume"]["h24"])) if "volume" in pair and "h24" in pair["volume"] else "N/A"
 
-                # Fetch token creation date (approximate age)
-                creation_date_str = token_data.get("createdAt", None)
-                age = "N/A"
-                if creation_date_str:
-                    creation_date = datetime.strptime(creation_date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
-                    age_delta = datetime.now() - creation_date
-                    age_hours = age_delta.total_seconds() // 3600
-                    age = f"{int(age_hours)}h"
+        # Fetch token creation date (approximate age)
+        creation_date_str = token_data.get("createdAt", None)
+        age = "N/A"
+        if creation_date_str:
+            creation_date = datetime.strptime(creation_date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+            age_delta = datetime.now() - creation_date
+            age_hours = age_delta.total_seconds() // 3600
+            age = f"{int(age_hours)}h"
 
-                # Check mint status
-                mint_status = "OK" if not token_data.get("mintable", True) else "Active"
+        # Check mint status
+        mint_status = "OK" if not token_data.get("mintable", True) else "Active"
 
-                # Simplified LP status (requires LP token burn check, so we'll assume 🔥 for now)
-                lp_status = "🔥"
+        # Simplified LP status (requires LP token burn check, so we'll assume 🔥 for now)
+        lp_status = "🔥"
 
-                # Fetch social links
-                socials = social_links.get(message_text.lower(), {})
-                socials_text = ""
-                if socials:
-                    socials_text = "🧰 More:\n"
-                    if "telegram" in socials:
-                        socials_text += f"💬 ({socials['telegram']})\n"
-                    if "website" in socials:
-                        socials_text += f"🌍 ({socials['website']})\n"
-                    if "twitter" in socials:
-                        socials_text += f"🐦 ({socials['twitter']})\n"
+        # Fetch social links
+        socials = social_links.get(message_text.lower(), {})
+        socials_text = ""
+        if socials:
+            socials_text = "🧰 More:\n"
+            if "telegram" in socials:
+                socials_text += f"💬 ({socials['telegram']})\n"
+            if "website" in socials:
+                socials_text += f"🌍 ({socials['website']})\n"
+            if "twitter" in socials:
+                socials_text += f"🐦 ({socials['twitter']})\n"
 
-                summary = (
-                    f"💊 *${token_symbol}*\n"
-                    f"🌐 Solana\n"
-                    f"- Name: {token_name}\n"
-                    f"💰 USD: ${price_usd:.6f}\n"
-                    f"💎 FDV: ${fdv:,}\n"
-                    f"💦 Liq: ${liquidity_usd:,}\n"
-                    f"📊 Vol: ${volume_24h:,}\n"
-                    f"📅 Age: {age}\n"
-                    f"🖨️ Mint: {mint_status}\n"
-                    f"🫧 LP: {lp_status}\n"
-                    f"{socials_text}"
-                )
-                await update.message.reply_text(summary, parse_mode="Markdown")
-                return
-
-            except requests.exceptions.RequestException as e:
-                await update.message.reply_text(f"❌ Error fetching contract details: {str(e)}", parse_mode="Markdown")
-                return
-        except ValueError:
-            pass  # Not a valid Solana address
-
-    # Check for ticker with $ prefix (e.g., $ETH)
-    ticker_pattern = r"^\$[A-Za-z]{1,5}$"
-    if re.match(ticker_pattern, message_text):
-        ticker = message_text.replace("$", "").lower()
-        response = safe_process(strategist, ticker)
-        if "Error" in response["summary"]:
-            await update.message.reply_text(
-                "I don't recognize this, can you send the Contract Address instead?",
-                parse_mode="Markdown"
-            )
-            return
-        elif "API rate limit" in response["summary"].lower():
-            response["summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., ~50-100 requests/minute for CoinGecko). Please try again later."
-        await update.message.reply_text(response["summary"], parse_mode="Markdown")
+        summary = (
+            f"💊 *${token_symbol}*\n"
+            f"🌐 Solana\n"
+            f"- Name: {token_name}\n"
+            f"💰 USD: ${price_usd:.6f}\n"
+            f"💎 FDV: ${fdv:,}\n"
+            f"💦 Liq: ${liquidity_usd:,}\n"
+            f"📊 Vol: ${volume_24h:,}\n"
+            f"📅 Age: {age}\n"
+            f"🖨️ Mint: {mint_status}\n"
+            f"🫧 LP: {lp_status}\n"
+            f"{socials_text}"
+        )
+        await update.message.reply_text(summary, parse_mode="Markdown")
         return
 
-    # If input doesn't match contract address or $ticker, return error message
-    await update.message.reply_text(
-        "I don’t recognize this, please send a CA or use /ticker (e.g., /ETH).",
-        parse_mode="Markdown"
-    )
+    except requests.exceptions.RequestException as e:
+        await update.message.reply_text(f"❌ Error fetching contract details: {str(e)}", parse_mode="Markdown")
+        return
+    except ValueError:
+        pass  # Not a valid Solana address
+
+# Check for ticker with $ prefix (e.g., $ETH)
+ticker_pattern = r"^\$[A-Za-z]{1,5}$"
+if re.match(ticker_pattern, message_text):
+    ticker = message_text.replace("$", "").lower()
+    response = safe_process(strategist, ticker)
+    if "Error" in response["summary"]:
+        await update.message.reply_text(
+            "I don't recognize this, can you send the Contract Address instead?",
+            parse_mode="Markdown"
+        )
+        return
+    elif "API rate limit" in response["summary"].lower():
+        response["summary"] += "\n\n*Note*: I’ve hit an API rate limit (e.g., ~50-100 requests/minute for CoinGecko). Please try again later."
+    await update.message.reply_text(response["summary"], parse_mode="Markdown")
+    return
+
+# If input doesn't match contract address or $ticker, return error message
+await update.message.reply_text(
+    "I don’t recognize this, please send a CA or use /ticker (e.g., /ETH).",
+    parse_mode="Markdown"
+)
 
 # Webhook route
 @app.post("/webhook")
@@ -338,10 +338,14 @@ async def root():
 # Main function to run the bot
 async def main():
     # Initialize the application in both modes
+    logger.info("Initializing application")
     await application.initialize()
+    logger.info("Application initialized")
     await application.start()
+    logger.info("Application started")
 
     # Add handlers after initialization
+    logger.info("Adding handlers")
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     # Add ticker commands for popular assets
@@ -350,11 +354,14 @@ async def main():
         application.add_handler(CommandHandler(asset, quick_analyze))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)  # Register the error handler
+    logger.info("Handlers added")
 
     if ENVIRONMENT == "production":
         if not WEBHOOK_URL:
             raise ValueError("WEBHOOK_URL must be set in production environment")
+        logger.info(f"Setting webhook to {WEBHOOK_URL}")
         await application.bot.set_webhook(url=WEBHOOK_URL)
+        logger.info("Webhook set")
         print("Bot is running with webhook...")
         uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
     else:
