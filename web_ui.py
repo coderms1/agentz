@@ -13,7 +13,7 @@ from price_fetcher import get_price
 app = FastAPI()
 
 AGENTS = {
-    "strategist": MarketStrategist(),
+    "market": MarketStrategist(),
     "whale": WhaleWatcher(),
     "alpha": AlphaFeeder()
 }
@@ -26,17 +26,12 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/ask", response_class=HTMLResponse)
-async def ask(request: Request, question: str = Form(...), agent: str = Form(...)):
-    selected_agent = AGENTS.get(agent, AGENTS["strategist"])
-
+async def ask(request: Request, question: str = Form(...), category: str = Form(...)):
+    selected_agent = AGENTS.get(category, AGENTS["market"])
     try:
-        if "price" in question.lower():
-            summary = get_price(question)
-        else:
-            response = safe_process(selected_agent, question)
-            summary = response["summary"]
-            log_query(agent_name=selected_agent.name, question=question, response=summary)
-
+        response = safe_process(selected_agent, question)
+        summary = response["summary"]
+        log_query(agent_name=selected_agent.name, question=question, response=summary)
     except Exception as e:
         summary = f"⚠️ Crypto analysis error: {str(e)}"
         print(f"[ERROR] {e}")
@@ -47,3 +42,15 @@ async def ask(request: Request, question: str = Form(...), agent: str = Form(...
         "response": summary
     })
 
+@app.post("/price", response_class=HTMLResponse)
+async def price(request: Request, symbol: str = Form(...)):
+    try:
+        price_result = get_price(symbol)
+    except Exception as e:
+        price_result = f"⚠️ Error fetching price: {str(e)}"
+        print(f"[ERROR] {e}")
+
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "price": price_result
+    })
