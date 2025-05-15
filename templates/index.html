@@ -1,73 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
+<html>
+<head>
     <title>🧠 Swarm Command Center</title>
-    <link
-      rel="stylesheet"
-      href="/static/style.css"
-    />
-  </head>
-  <body>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
     <div class="container">
-      <h1>🧠 Swarm Command Center</h1>
+        <h1>🧠 Swarm Command Center</h1>
 
-      <!-- Coin Price Section -->
-      <form
-        method="post"
-        action="/price"
-      >
-        <label for="symbol">Get Price for Coin (Symbol):</label>
-        <input
-          type="text"
-          id="symbol"
-          name="symbol"
-          placeholder="e.g. BTC, ETH, SUI"
-          required
-        />
-        <button type="submit">📊 Get Price</button>
-      </form>
+        <!-- 🔹 Get Price Form -->
+        <form method="post" action="/get-price">
+            <label for="coin_symbol">Get Price for Coin (Symbol): </label><br>
+            <input type="text" id="coin_symbol" name="coin_symbol" placeholder="e.g. BTC, ETH, SUI"><br>
+            <button type="submit">📊 Get Price</button>
+        </form>
 
-      {% if price %}
-      <div class="response">
-        <p><strong>📈 Live Price:</strong> {{ price }}</p>
-      </div>
-      {% endif %}
+        {% if price_result %}
+            <p><strong>📈 Live Price:</strong> {{ price_result }}</p>
+        {% endif %}
 
-      <!-- Smart Question Section -->
-      <form
-        method="post"
-        action="/ask"
-      >
-        <label for="category">What kind of question do you have?</label>
-        <select
-          id="category"
-          name="category"
-          required
-        >
-          <option value="market">📉 Market Trends</option>
-          <option value="whale">🐋 Whale Activity</option>
-          <option value="alpha">🧃 Alpha Insights</option>
-        </select>
+        <hr>
 
-        <label for="question">📝 Question:</label>
-        <input
-          type="text"
-          id="question"
-          name="question"
-          placeholder="e.g. is sol trending?"
-          required
-        />
+        <!-- 🔸 Question Form -->
+        <form method="post" action="/ask">
+            <label for="agent">What kind of question do you have?</label><br>
+            <select name="agent" id="agent">
+                <option value="strategist">📉 Market Trends</option>
+                <option value="whale">🐋 Whale Activity</option>
+                <option value="alpha">🧠 Alpha Intel</option>
+            </select><br>
 
-        <button type="submit">📡 Deploy Intelligence</button>
-      </form>
+            <label for="question">📝 Question:</label><br>
+            <input type="text" id="question" name="question" placeholder="e.g. is sol trending?"><br>
+            <button type="submit">📡 Deploy Intelligence</button>
+        </form>
 
-      {% if question and response %}
-      <div class="response">
-        <p><strong>📝 Question:</strong> {{ question }}</p>
-        <p><strong>📡 Response:</strong> {{ response }}</p>
-      </div>
-      {% endif %}
+        {% if response %}
+            <p><strong>📡 Response:</strong> {{ response }}</p>
+        {% endif %}
     </div>
-  </body>
+</body>
 </html>
