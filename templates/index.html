@@ -1,40 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🧠 Swarm Command Center</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-  <h1>🧠 Swarm Command Center</h1>
-  <form method="post" action="/ask">
-    <label for="question">Ask a question:</label><br>
-    <input type="text" id="question" name="question" required><br><br>
+  <head>
+    <meta charset="UTF-8" />
+    <title>🧠 Swarm Command Center</title>
+    <link
+      rel="stylesheet"
+      href="/static/style.css"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>🧠 Swarm Command Center</h1>
 
-    <label for="agent">What kind of question do you have?</label><br>
-    <select id="agent" name="agent" required>
-      <option value="strategist">📈 Market Trends</option>
-      <option value="whale">🐋 Whale Movements</option>
-      <option value="alpha">🧠 Alpha / Insider Info</option>
-    </select><br><br>
+      <!-- Coin Price Section -->
+      <form
+        method="post"
+        action="/price"
+      >
+        <label for="symbol">Get Price for Coin (Symbol):</label>
+        <input
+          type="text"
+          id="symbol"
+          name="symbol"
+          placeholder="e.g. BTC, ETH, SUI"
+          required
+        />
+        <button type="submit">📊 Get Price</button>
+      </form>
 
-    <button type="submit">Deploy Intelligence</button>
-  </form>
+      {% if price %}
+      <div class="response">
+        <p><strong>📈 Live Price:</strong> {{ price }}</p>
+      </div>
+      {% endif %}
 
-  {% if question %}
-    <h2>📝 Question:</h2>
-    <p>{{ question }}</p>
-  {% endif %}
+      <!-- Smart Question Section -->
+      <form
+        method="post"
+        action="/ask"
+      >
+        <label for="category">What kind of question do you have?</label>
+        <select
+          id="category"
+          name="category"
+          required
+        >
+          <option value="market">📉 Market Trends</option>
+          <option value="whale">🐋 Whale Activity</option>
+          <option value="alpha">🧃 Alpha Insights</option>
+        </select>
 
-  {% if response %}
-    <h2>📡 Response:</h2>
-    <p>{{ response }}</p>
-  {% endif %}
+        <label for="question">📝 Question:</label>
+        <input
+          type="text"
+          id="question"
+          name="question"
+          placeholder="e.g. is sol trending?"
+          required
+        />
 
-  {% if error %}
-    <h2>⚠️ Error:</h2>
-    <p>{{ error }}</p>
-  {% endif %}
-</body>
+        <button type="submit">📡 Deploy Intelligence</button>
+      </form>
+
+      {% if question and response %}
+      <div class="response">
+        <p><strong>📝 Question:</strong> {{ question }}</p>
+        <p><strong>📡 Response:</strong> {{ response }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </body>
 </html>
