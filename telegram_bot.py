@@ -187,7 +187,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Webhook route
 @app.post("/webhook")
 async def webhook(request: Request):
-    update = Update.de_json(await request.json(), application.bot)
+    update_data = await request.json()
+    logger.info(f"Received webhook update: {update_data}")  # Log the incoming update
+    update = Update.de_json(update_data, application.bot)
     await application.process_update(update)
     return {"status": "ok"}
 
@@ -197,6 +199,15 @@ async def root():
 
 # Main function to run the bot
 async def main():
+    # Initialize the application
+    logger.info("Initializing application")
+    await application.initialize()
+    logger.info("Application initialized")
+    await application.start()
+    logger.info("Application started")
+
+    # Add handlers after initialization
+    logger.info("Adding handlers")
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     # Add ticker commands for popular assets
@@ -205,17 +216,18 @@ async def main():
         application.add_handler(CommandHandler(asset, quick_analyze))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)  # Register the error handler
+    logger.info("Handlers added")
 
     if ENVIRONMENT == "production":
         if not WEBHOOK_URL:
             raise ValueError("WEBHOOK_URL must be set in production environment")
+        logger.info(f"Setting webhook to {WEBHOOK_URL}")
         await application.bot.set_webhook(url=WEBHOOK_URL)
+        logger.info("Webhook set")
         print("Bot is running with webhook...")
         uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
     else:
         print("Bot is running with polling...")
-        await application.initialize()
-        await application.start()
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         await asyncio.Event().wait()
 
