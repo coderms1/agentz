@@ -8,6 +8,7 @@ from whale_watcher import WhaleWatcher
 from alpha_feeder import AlphaFeeder
 from guardrails import safe_process
 from db_logger import log_query
+from price_fetcher import get_price
 
 app = FastAPI()
 
@@ -29,9 +30,18 @@ async def ask(request: Request, question: str = Form(...), agent: str = Form(...
     selected_agent = AGENTS.get(agent, AGENTS["strategist"])
 
     try:
-        response = safe_process(selected_agent, question)
-        summary = response["summary"]
-        log_query(agent_name=selected_agent.name, question=question, response=summary)
+        if "price" in question.lower():
+            if "bitcoin" in question.lower():
+                summary = get_price("bitcoin")
+            elif "ethereum" in question.lower() or "eth" in question.lower():
+                summary = get_price("ethereum")
+            else:
+                summary = get_price()  # default fallback
+        else:
+            response = safe_process(selected_agent, question)
+            summary = response["summary"]
+            log_query(agent_name=selected_agent.name, question=question, response=summary)
+
     except Exception as e:
         summary = f"⚠️ Crypto analysis error: {str(e)}"
         print(f"[ERROR] {e}")
@@ -41,3 +51,4 @@ async def ask(request: Request, question: str = Form(...), agent: str = Form(...
         "question": question,
         "response": summary
     })
+
