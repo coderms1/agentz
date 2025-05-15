@@ -150,40 +150,33 @@ async def test_token():
         logger.error(f"Token test failed: {str(e)}")
         return {"status": "error", "message": str(e)}
 
-# Initialize the application synchronously before starting the server
-def initialize_application():
+# FastAPI startup event to initialize the application
+@app.on_event("startup")
+async def startup_event():
     logger.info("Starting application initialization")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(application.initialize())
-        logger.info("Application initialized")
-        loop.run_until_complete(application.start())
-        logger.info("Application started")
+    await application.initialize()
+    logger.info("Application initialized")
+    await application.start()
+    logger.info("Application started")
 
-        # Add handlers
-        logger.info("Adding handlers")
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
-        for asset in popular_assets:
-            application.add_handler(CommandHandler(asset, quick_analyze))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        application.add_error_handler(error_handler)
-        logger.info("Handlers added")
+    # Add handlers
+    logger.info("Adding handlers")
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
+    for asset in popular_assets:
+        application.add_handler(CommandHandler(asset, quick_analyze))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(error_handler)
+    logger.info("Handlers added")
 
-        if ENVIRONMENT == "production":
-            if not WEBHOOK_URL:
-                raise ValueError("WEBHOOK_URL must be set in production environment")
-            logger.info(f"Setting webhook to {WEBHOOK_URL}")
-            loop.run_until_complete(application.bot.set_webhook(url=WEBHOOK_URL))
-            logger.info("Webhook set")
-    finally:
-        loop.close()
-        logger.info("Application initialization completed")
-
-# Run initialization before starting the server
-initialize_application()
+    if ENVIRONMENT == "production":
+        if not WEBHOOK_URL:
+            raise ValueError("WEBHOOK_URL must be set in production environment")
+        logger.info(f"Setting webhook to {WEBHOOK_URL}")
+        await application.bot.set_webhook(url=WEBHOOK_URL)
+        logger.info("Webhook set")
+    logger.info("Application initialization completed")
 
 if ENVIRONMENT == "production":
     print("Bot is running with webhook...")
