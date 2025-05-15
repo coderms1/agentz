@@ -111,12 +111,12 @@ class DataFetcher:
             overall_trend = "upward" if change_percent_7d > 0 else "downward" if change_percent_7d < 0 else "stable"
 
             summary = (
-                f"*Crypto Update for {crypto_name.capitalize()}*\n"
-                f"- Price: ${price:.2f}\n"
-                f"- Market Cap: ${market_cap:,}\n"
-                f"- Volume (24h): ${volume_24h:,}\n"
-                f"- 24h Change: {change_percent_24h:.2f}%\n"
-                f"- 7d Trend: {overall_trend} ({change_percent_7d:.2f}% if available)"
+                f"💫 *Crypto Update for {crypto_name.capitalize()}*\n"
+                f"-📈 Price: ${price:.2f}\n"
+                f"-💰 Market Cap: ${market_cap:,}\n"
+                f"-📊 Volume (24h): ${volume_24h:,}\n"
+                f"-⌚ 24h Change: {change_percent_24h:.2f}%\n"
+                f"-📅 7d Trend: {overall_trend} ({change_percent_7d:.2f}% if available)"
             )
 
             result = {"summary": summary, "details": ""}
@@ -162,7 +162,7 @@ class DataFetcher:
                 f"* 🪙 Token Details (Ethereum)*\n"
                 f"- 🪪 Name: {token_name}\n"
                 f"- ©️ Symbol: {token_symbol}\n"
-                f"- 📔 Contract Address: {message_text}\n"
+                f"- 📔 Contract Address: {address}\n"
                 f"- 💡 Creator: {creator_address}"
             )
             result = {"summary": summary, "details": ""}
