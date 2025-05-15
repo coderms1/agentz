@@ -7,7 +7,6 @@ import asyncio
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from market_strategist import MarketStrategist
 from data_fetcher import DataFetcher
 from guardrails import safe_process
 import uvicorn
@@ -118,49 +117,79 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Webhook route
 @app.post("/webhook")
 async def webhook(request: Request):
-    update_data = await request.json()
-    logger.info(f"Received webhook update: {update_data}")  # Log the incoming update
-    update = Update.de_json(update_data, application.bot)
-    await application.process_update(update)
-    return {"status": "ok"}
+    logger.info("Webhook endpoint hit")
+    try:
+        update_data = await request.json()
+        logger.info(f"Received webhook update: {update_data}")
+        update = Update.de_json(update_data, application.bot)
+        if update is None:
+            logger.error("Failed to parse update from Telegram")
+            return {"status": "error", "message": "Failed to parse update"}
+        await application.process_update(update)
+        logger.info("Webhook update processed successfully")
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error processing webhook request: {str(e)}", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
 
-# Main function to run the bot
-async def main():
-    # Initialize the application
-    logger.info("Initializing application")
-    await application.initialize()
-    logger.info("Application initialized")
-    await application.start()
-    logger.info("Application started")
+# Test endpoint to verify the Telegram Bot Token
+@app.get("/test-token")
+async def test_token():
+    logger.info("Testing Telegram Bot Token")
+    try:
+        response = requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe")
+        response.raise_for_status()
+        data = response.json()
+        logger.info(f"Token test response: {data}")
+        return {"status": "success", "response": data}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Token test failed: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
-    # Add handlers after initialization
-    logger.info("Adding handlers")
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    # Add ticker commands for popular assets
-    popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
-    for asset in popular_assets:
-        application.add_handler(CommandHandler(asset, quick_analyze))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_error_handler(error_handler)  # Register the error handler
-    logger.info("Handlers added")
+# Initialize the application synchronously before starting the server
+def initialize_application():
+    logger.info("Starting application initialization")
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(application.initialize())
+        logger.info("Application initialized")
+        loop.run_until_complete(application.start())
+        logger.info("Application started")
 
-    if ENVIRONMENT == "production":
-        if not WEBHOOK_URL:
-            raise ValueError("WEBHOOK_URL must be set in production environment")
-        logger.info(f"Setting webhook to {WEBHOOK_URL}")
-        await application.bot.set_webhook(url=WEBHOOK_URL)
-        logger.info("Webhook set")
-        print("Bot is running with webhook...")
-        uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
-    else:
-        print("Bot is running with polling...")
-        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-        await asyncio.Event().wait()
+        # Add handlers
+        logger.info("Adding handlers")
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        popular_assets = ["btc", "eth", "sol", "dot", "avax", "link", "inj", "sui", "ada", "xrp", "doge"]
+        for asset in popular_assets:
+            application.add_handler(CommandHandler(asset, quick_analyze))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        application.add_error_handler(error_handler)
+        logger.info("Handlers added")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+        if ENVIRONMENT == "production":
+            if not WEBHOOK_URL:
+                raise ValueError("WEBHOOK_URL must be set in production environment")
+            logger.info(f"Setting webhook to {WEBHOOK_URL}")
+            loop.run_until_complete(application.bot.set_webhook(url=WEBHOOK_URL))
+            logger.info("Webhook set")
+    finally:
+        loop.close()
+        logger.info("Application initialization completed")
+
+# Run initialization before starting the server
+initialize_application()
+
+if ENVIRONMENT == "production":
+    print("Bot is running with webhook...")
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+else:
+    print("Bot is running with polling...")
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(application.updater.start_polling(allowed_updates=Update.ALL_TYPES))
+    loop.run_forever()
