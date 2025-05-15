@@ -10,6 +10,7 @@ from market_strategist import MarketStrategist
 from whale_watcher import WhaleWatcher
 from guardrails import safe_process
 from data_fetcher import DataFetcher
+from alpha_feeder import AlphaFeeder
 
 load_dotenv()
 
@@ -26,8 +27,9 @@ logger = logging.getLogger(__name__)
 # Initialize agent + fetcher
 strategist = MarketStrategist()
 whale_watcher = WhaleWatcher()
+alpha_feeder = AlphaFeeder()
 data_fetcher = DataFetcher(etherscan_api_key=ETHERSCAN_API_KEY, solscan_api_key=SOLSCAN_API_KEY)
-AGENTS = [whale_watcher, strategist]
+AGENTS = [whale_watcher, alpha_feeder, strategist]  # Order matters: most specific → to → most general
 
 # Init FastAPI + Telegram
 app = FastAPI()
@@ -70,6 +72,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 continue
             break
         else:
+            logger.info(f"No agent triggered for message: {message}")
             res = {"summary": "🤖 No agent understood this. Try a crypto name or 'whale' keyword."}
 
     await update.message.reply_text(res["summary"])
