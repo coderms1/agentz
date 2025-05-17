@@ -1,7 +1,7 @@
 body {
-  background-color: #0d1b2a;
+  background-color: #1c2b36; /* updated to greyish navy blue */
   color: #ffffff;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: "Segoe UI", sans-serif;
   text-align: center;
   padding: 2em;
 }
