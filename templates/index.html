@@ -1,51 +1,29 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🧠 Swarm Command Center</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Swarm Command Center</h1>
 
-from market_strategist import MarketStrategist
-from whale_watcher import WhaleWatcher
-from alpha_feeder import AlphaFeeder
-from guardrails import safe_process
-from db_logger import log_query
-from price_fetcher import get_price_summary
+        <form method="post" action="/ask">
+            <label for="question">Ask a question:</label>
+            <textarea id="question" name="question" rows="4" placeholder="Try 'Is SOL trending?' or 'Price of ETH'" required></textarea>
+            <button type="submit">📡 Deploy Intelligence</button>
+        </form>
 
-app = FastAPI()
+        {% if question %}
+            <h3>📝 Question:</h3>
+            <p>{{ question }}</p>
+        {% endif %}
 
-AGENTS = {
-    "strategist": MarketStrategist(),
-    "whale": WhaleWatcher(),
-    "alpha": AlphaFeeder()
-}
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.post("/ask", response_class=HTMLResponse)
-async def ask(request: Request, question: str = Form(...)):
-    agent = AGENTS["strategist"]  # Use MarketStrategist as default
-    summary = None
-
-    try:
-        # First try direct price summary
-        price_summary = get_price_summary(question)
-        if price_summary:
-            summary = price_summary
-        else:
-            response = safe_process(agent, question)
-            summary = response["summary"]
-            log_query(agent_name=agent.name, question=question, response=summary)
-
-    except Exception as e:
-        summary = f"⚠️ Crypto analysis error: {str(e)}"
-        print(f"[ERROR] {e}")
-
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "question": question,
-        "response": summary
-    })
+        {% if response %}
+            <h3>📡 Response:</h3>
+            <p>{{ response }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>

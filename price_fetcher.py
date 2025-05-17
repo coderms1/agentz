@@ -2,38 +2,17 @@ from pycoingecko import CoinGeckoAPI
 
 cg = CoinGeckoAPI()
 
-def get_price_summary(query):
+def get_price_info(text):
     try:
         coins = cg.get_coins_list()
-        query = query.lower()
+        text = text.lower()
 
-        # Try to match symbol or name from user input
         for coin in coins:
-            if (
-                coin["symbol"].lower() == query
-                or coin["id"] == query
-                or coin["name"].lower() in query
-                or coin["symbol"].lower() in query
-            ):
-                coin_id = coin["id"]
-                data = cg.get_coin_by_id(id=coin_id)
-                price = data["market_data"]["current_price"]["usd"]
-                market_cap = data["market_data"]["market_cap"]["usd"]
-                volume = data["market_data"]["total_volume"]["usd"]
-                change_24h = data["market_data"]["price_change_percentage_24h"]
-                change_7d = data["market_data"]["price_change_percentage_7d"]
-
-                trend = "upward" if change_7d > 0 else "downward"
-                return (
-                    f"*{data['name']} Update* - "
-                    f"Price: ${price:,.2f} - "
-                    f"Market Cap: ${market_cap:,.0f} - "
-                    f"Volume (24h): ${volume:,.0f} - "
-                    f"24h Change: {change_24h:.2f}% - "
-                    f"7d Trend: {trend} ({change_7d:.2f}% 7d)"
-                )
-
-        return None
-
+            if (coin['symbol'] in text or coin['id'] in text or coin['name'].lower() in text):
+                data = cg.get_price(ids=coin['id'], vs_currencies='usd')
+                price = data.get(coin['id'], {}).get('usd')
+                if price:
+                    return f"The current price of {coin['name'].title()} is ${price:,.2f}"
+        return "⚠️ Coin not found. Try using a symbol like BTC, ETH, or SOL."
     except Exception as e:
-        return f"⚠️ Price fetch error: {str(e)}"
+        return f"⚠️ Error fetching price: {str(e)}"
