@@ -19,31 +19,32 @@ class DataFetcher:
         self.solscan_api_key = solscan_api_key
 
     def fetch_price_by_contract(self, address, chain):
-        """Fetch only the price from contract address on Ethereum or Solana."""
         try:
+            # Select Dexscreener chain slug
             if chain == "ethereum":
-                url = f"https://api.etherscan.io/api?module=token&action=tokeninfo&contractaddress={address}&apikey={self.etherscan_api_key}"
-                response = requests.get(url, timeout=10)
-                response.raise_for_status()
-                data = response.json()
-                if data["status"] != "1" or not data["result"]:
-                    return {"summary": f"Could not fetch price for {address} on Ethereum.", "details": ""}
-                token_info = data["result"][0]
-                price_usd = float(token_info.get("tokenPriceUSD", 0))
-                return {"summary": f"Token Price on Ethereum: ${price_usd:,.6f}", "details": ""}
-
+                url = f"https://api.dexscreener.com/latest/dex/pairs/ethereum/{address}"
             elif chain == "solana":
-                headers = {"accept": "application/json"}
-                url = f"https://public-api.solscan.io/token/price?address={address}"
-                response = requests.get(url, headers=headers, timeout=10)
-                response.raise_for_status()
-                data = response.json()
-                price = data.get("priceUsdt", None)
-                if price is None:
-                    return {"summary": f"Price not available for {address} on Solana.", "details": ""}
-                return {"summary": f"Token Price on Solana: ${price:,.6f}", "details": ""}
-
+                url = f"https://api.dexscreener.com/latest/dex/pairs/solana/{address}"
             else:
-                return {"summary": f"Chain not supported for price by contract: {chain}", "details": ""}
+                return {"summary": f"Unsupported chain: {chain}", "details": ""}
+
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if "pairs" not in data or not data["pairs"]:
+                return {"summary": f"No price data found for {address} on {chain.title()}.", "details": ""}
+
+            # Use first valid pair result
+            price_data = data["pairs"][0]
+            price_usd = float(price_data.get("priceUsd", 0))
+            token_name = price_data.get("baseToken", {}).get("name", "Unknown Token")
+            token_symbol = price_data.get("baseToken", {}).get("symbol", "")
+
+            return {
+                "summary": f"{token_name} ({token_symbol})\nPrice on {chain.title()}: ${price_usd:,.6f}",
+                "details": ""
+            }
+
         except Exception as e:
-            return {"summary": f"Error fetching price for {address}.", "details": str(e)}    
+            return {"summary": f"Error fetching price for {address}.", "details": str(e)}
