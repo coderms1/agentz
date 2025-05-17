@@ -1,6 +1,3 @@
-# Finalized data_fetcher.py with expanded token info, dynamic Chainlink support, Dexscreener fallback,
-# SUI (via Birdeye) support, Anthropic fallback, and token logo/volume/liquidity formatting with source attribution
-
 import requests
 import os
 from cachetools import TTLCache
@@ -135,8 +132,11 @@ class DataFetcher:
             # Anthropic fallback
             fallback_summary = get_anthropic_summary(address, chain)
             result = {
-                "summary": f"*Unknown Contract on {chain.upper()}*
-{fallback_summary}\nSource: Swarm Intelligence (Anthropic)",
+                "summary": (
+                    f"*Unknown Contract on {chain.upper()}*\n"
+                    f"{fallback_summary}\n"
+                    f"Source: Swarm Intelligence (Anthropic)"
+                ),
                 "details": ""
             }
             return result
