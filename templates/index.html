@@ -1,29 +1,41 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>🧠 Swarm Command Center</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link
+    rel="stylesheet"
+    href="/static/style.css"
+    />
 </head>
-<body>
-    <div class="container">
+    <body>
+        <div class="container">
         <h1>🧠 Swarm Command Center</h1>
 
-        <form method="post" action="/ask">
-            <label for="question">Ask a question:</label>
-            <textarea id="question" name="question" rows="4" placeholder="Try 'Is SOL trending?' or 'Price of ETH'" required></textarea>
+        <form
+            method="post"
+            action="/ask"
+        >
+            <label for="question">Ask a question about any coin:</label><br />
+            <input
+            type="text"
+            id="question"
+            name="question"
+            placeholder="e.g. What is the price of SUI?"
+            required
+            /><br /><br />
             <button type="submit">📡 Deploy Intelligence</button>
         </form>
 
         {% if question %}
+        <div class="result">
             <h3>📝 Question:</h3>
             <p>{{ question }}</p>
-        {% endif %}
-
-        {% if response %}
             <h3>📡 Response:</h3>
             <p>{{ response }}</p>
+        </div>
         {% endif %}
-    </div>
-</body>
+        </div>
+    </body>
 </html>

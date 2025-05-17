@@ -1,13 +1,14 @@
-from price_fetcher import get_price_info
+from price_fetcher import get_price_summary
 from narrative_agent import get_narrative
 
 class MarketStrategist:
     def __init__(self):
-        self.name = "MarketStrategist"
+        self.name = "Market Strategist"
 
     def process(self, question):
-        if any(keyword in question.lower() for keyword in ["price", "$", "cost", "value"]):
-            result = get_price_info(question)
-            return {"summary": result}
-        else:
-            return get_narrative(question)
+        # Try price summary first
+        summary = get_price_summary(question)
+        if summary:
+            return {"summary": summary}
+        # Fallback to general narrative response
+        return get_narrative(question)
