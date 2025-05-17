@@ -1,5 +1,5 @@
 # Finalized data_fetcher.py with expanded token info, dynamic Chainlink support, Dexscreener fallback,
-# SUI support, Anthropic fallback, and token logo/volume/liquidity formatting
+# SUI (via Birdeye) support, Anthropic fallback, and token logo/volume/liquidity formatting
 
 import requests
 import os
@@ -47,6 +47,7 @@ class DataFetcher:
         self.solscan_api_key = solscan_api_key
         self.w3 = Web3(Web3.HTTPProvider(os.getenv("INFURA_URL")))
         self.feed_registry = self.w3.eth.contract(address=FEED_REGISTRY, abi=REGISTRY_ABI)
+        self.birdeye_api_key = os.getenv("BIRDEYE_API_KEY")
 
     def fetch_price_by_contract(self, address, chain):
         cache_key = f"{chain}_{address.lower()}"
@@ -105,17 +106,26 @@ class DataFetcher:
                 crypto_cache[cache_key] = result
                 return result
 
-            # SUI support
+            # SUI via Birdeye
             if chain == "sui":
-                sui_url = f"https://api.suiscan.xyz/v1/coins/{address}"
-                headers = {"accept": "application/json"}
-                sui_response = requests.get(sui_url, headers=headers, timeout=10)
-                sui_response.raise_for_status()
-                data = sui_response.json()
-                price = data.get("price", 0)
-                token_name = data.get("name", "Unknown")
+                headers = {"X-API-KEY": self.birdeye_api_key}
+                url = f"https://public-api.birdeye.so/public/token/{address}?include=volume,liquidity"
+                res = requests.get(url, headers=headers, timeout=10)
+                res.raise_for_status()
+                data = res.json().get("data", {})
+                price = float(data.get("priceUsd", 0))
+                name = data.get("name", "Unknown")
+                symbol = data.get("symbol", "")
+                liquidity = data.get("liquidity", {}).get("usd", 0)
+                volume = data.get("volume", {}).get("h24", 0)
+
                 result = {
-                    "summary": f"*{token_name} (SUI)*\nPrice: ${price:,.6f}",
+                    "summary": (
+                        f"*{name} ({symbol}) on SUI (via Birdeye)*\n"
+                        f"Price: ${price:,.6f}\n"
+                        f"24h Volume: ${volume:,.0f}\n"
+                        f"Liquidity: ${liquidity:,.0f}"
+                    ),
                     "details": ""
                 }
                 crypto_cache[cache_key] = result
