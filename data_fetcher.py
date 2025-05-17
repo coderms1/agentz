@@ -142,4 +142,4 @@ class DataFetcher:
             return result
 
         except Exception as e:
-            return {"summary": f"Error fetching price for {address}.", "details": str(e)}"
+            return {"summary": f"Error fetching price for {address}.", "details": str(e)}
