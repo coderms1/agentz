@@ -8,9 +8,8 @@ class MarketStrategist:
     def __init__(self):
         self.name = "Market Strategist"
         self.fetcher = DataFetcher(
-            etherscan_api_key=os.getenv("ETHERSCAN_API_KEY"),
-            solscan_api_key=os.getenv("SOLSCAN_API_KEY"),
-            sui_api_key=os.getenv("SUISCAN_API_KEY")  # ✅ Add this line
+        etherscan_api_key=os.getenv("ETHERSCAN_API_KEY"),
+        solscan_api_key=os.getenv("SOLSCAN_API_KEY")
         )
 
     def process(self, question, chain):
