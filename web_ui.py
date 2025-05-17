@@ -8,6 +8,7 @@ from whale_watcher import WhaleWatcher
 from alpha_feeder import AlphaFeeder
 from guardrails import safe_process
 from db_logger import log_query
+from price_fetcher import get_price_summary
 
 app = FastAPI()
 
@@ -25,23 +26,26 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/ask", response_class=HTMLResponse)
-async def ask(
-    request: Request,
-    question: str = Form(...),
-    agent: str = Form("strategist")
-):
-    selected_agent = AGENTS.get(agent, AGENTS["strategist"])
+async def ask(request: Request, question: str = Form(...)):
+    agent = AGENTS["strategist"]  # Use MarketStrategist as default
+    summary = None
+
     try:
-        response = safe_process(selected_agent, question)
-        summary = response["summary"]
-        log_query(agent_name=selected_agent.name, question=question, response=summary)
+        # First try direct price summary
+        price_summary = get_price_summary(question)
+        if price_summary:
+            summary = price_summary
+        else:
+            response = safe_process(agent, question)
+            summary = response["summary"]
+            log_query(agent_name=agent.name, question=question, response=summary)
+
     except Exception as e:
-        summary = "⚠️ Oops. Couldn’t answer that one. Try rephrasing or check CoinGecko or DexScreener."
+        summary = f"⚠️ Crypto analysis error: {str(e)}"
         print(f"[ERROR] {e}")
 
     return templates.TemplateResponse("index.html", {
         "request": request,
         "question": question,
-        "agent": agent,
         "response": summary
     })

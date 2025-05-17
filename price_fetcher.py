@@ -1,26 +1,39 @@
 from pycoingecko import CoinGeckoAPI
-import requests
 
 cg = CoinGeckoAPI()
 
-def get_price(question=None):
+def get_price_summary(query):
     try:
-        if not question:
-            return "Please enter a valid cryptocurrency symbol or name."
-
-        question = question.lower()
         coins = cg.get_coins_list()
+        query = query.lower()
 
+        # Try to match symbol or name from user input
         for coin in coins:
-            if coin['symbol'] in question or coin['id'] in question or coin['name'].lower() in question:
-                try:
-                    data = cg.get_price(ids=coin['id'], vs_currencies='usd')
-                    price = data.get(coin['id'], {}).get('usd')
-                    if price:
-                        return f"The current price of {coin['name'].title()} is ${price:,.2f}"
-                except:
-                    return f"Having trouble fetching {coin['name'].title()}'s price. Try CoinGecko or CoinMarketCap."
+            if (
+                coin["symbol"].lower() == query
+                or coin["id"] == query
+                or coin["name"].lower() in query
+                or coin["symbol"].lower() in query
+            ):
+                coin_id = coin["id"]
+                data = cg.get_coin_by_id(id=coin_id)
+                price = data["market_data"]["current_price"]["usd"]
+                market_cap = data["market_data"]["market_cap"]["usd"]
+                volume = data["market_data"]["total_volume"]["usd"]
+                change_24h = data["market_data"]["price_change_percentage_24h"]
+                change_7d = data["market_data"]["price_change_percentage_7d"]
 
-        return "Couldn't identify that coin. Try a known symbol like BTC or check a site like CoinGecko."
+                trend = "upward" if change_7d > 0 else "downward"
+                return (
+                    f"*{data['name']} Update* - "
+                    f"Price: ${price:,.2f} - "
+                    f"Market Cap: ${market_cap:,.0f} - "
+                    f"Volume (24h): ${volume:,.0f} - "
+                    f"24h Change: {change_24h:.2f}% - "
+                    f"7d Trend: {trend} ({change_7d:.2f}% 7d)"
+                )
+
+        return None
+
     except Exception as e:
-        return f"⚠️ Something went wrong: {str(e)}"
+        return f"⚠️ Price fetch error: {str(e)}"
