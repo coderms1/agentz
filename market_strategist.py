@@ -1,5 +1,5 @@
 import requests
-from guardrails import safe_format
+from guardrails import safe_process
 
 class MarketStrategist:
     def __init__(self):
