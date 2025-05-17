@@ -16,14 +16,14 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/ask", response_class=HTMLResponse)
-async def ask(request: Request, question: str = Form(...)):
+async def ask(request: Request, question: str = Form(...), chain: str = Form(...)):
     try:
-        response = agent.process(question)
+        response = agent.process(question, chain)
         summary = response["summary"]
-        log_query(agent_name=agent.name, question=question, response=summary)
+        log_query(agent_name=agent.name, question=f"{chain} - {question}", response=summary)
     except Exception as e:
         summary = f"Error processing request: {str(e)}"
-        log_query(agent_name=agent.name, question=question, response=summary)
+        log_query(agent_name=agent.name, question=f"{chain} - {question}", response=summary)
 
     return templates.TemplateResponse("index.html", {
         "request": request,
