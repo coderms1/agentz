@@ -4,13 +4,10 @@
 <head>
     <meta charset="UTF-8" />
     <title>🧠 Swarm Command Center</title>
-    <link
-    rel="stylesheet"
-    href="/static/style.css"
-    />
+    <link rel="stylesheet" href="/static/style.css" />
 </head>
-    <body>
-        <div class="container">
+<body>
+    <div class="container">
         <h1>🧠 Swarm Command Center</h1>
 
         <form method="post" action="/ask">
@@ -18,12 +15,11 @@
             <select id="chain" name="chain" required>
                 <option value="ethereum">Ethereum</option>
                 <option value="solana">Solana</option>
-                <!-- Add more later: <option value="sui">SUI</option> -->
             </select><br /><br />
-        
+
             <label for="question">Enter Contract Address:</label><br />
             <input type="text" id="question" name="question" placeholder="0x..." required /><br /><br />
-        
+
             <button type="submit">📡 Deploy Intelligence</button>
         </form>
 
@@ -35,6 +31,6 @@
             <p>{{ response }}</p>
         </div>
         {% endif %}
-        </div>
-    </body>
+    </div>
+</body>
 </html>

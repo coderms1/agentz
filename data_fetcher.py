@@ -1,50 +1,128 @@
+# Finalized data_fetcher.py with expanded token info, dynamic Chainlink support, Dexscreener fallback,
+# SUI support, Anthropic fallback, and token logo/volume/liquidity formatting
+
 import requests
-import time
+import os
 from cachetools import TTLCache
 import logging
+from web3 import Web3
+from anthropic_assistant import get_anthropic_summary
 
-# Set up logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Cache (5-minute TTL, max 100 items)
 crypto_cache = TTLCache(maxsize=100, ttl=300)
+
+FEED_REGISTRY = "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
+USD_PROXY = "0x0000000000000000000000000000000000000348"
+DECIMALS = 8
+
+REGISTRY_ABI = [{
+    "inputs": [
+        {"internalType": "address", "name": "base", "type": "address"},
+        {"internalType": "address", "name": "quote", "type": "address"}
+    ],
+    "name": "getFeed",
+    "outputs": [{"internalType": "address", "name": "aggregator", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+}]
+
+AGGREGATOR_ABI = [{
+    "inputs": [],
+    "name": "latestRoundData",
+    "outputs": [
+        {"internalType": "uint80", "name": "roundId", "type": "uint80"},
+        {"internalType": "int256", "name": "answer", "type": "int256"},
+        {"internalType": "uint256", "name": "startedAt", "type": "uint256"},
+        {"internalType": "uint256", "name": "updatedAt", "type": "uint256"},
+        {"internalType": "uint80", "name": "answeredInRound", "type": "uint80"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+}]
 
 class DataFetcher:
     def __init__(self, etherscan_api_key, solscan_api_key):
         self.etherscan_api_key = etherscan_api_key
         self.solscan_api_key = solscan_api_key
+        self.w3 = Web3(Web3.HTTPProvider(os.getenv("INFURA_URL")))
+        self.feed_registry = self.w3.eth.contract(address=FEED_REGISTRY, abi=REGISTRY_ABI)
 
     def fetch_price_by_contract(self, address, chain):
-        try:
-            # Select Dexscreener chain slug
-            if chain == "ethereum":
-                url = f"https://api.dexscreener.com/latest/dex/pairs/ethereum/{address}"
-            elif chain == "solana":
-                url = f"https://api.dexscreener.com/latest/dex/pairs/solana/{address}"
-            else:
-                return {"summary": f"Unsupported chain: {chain}", "details": ""}
+        cache_key = f"{chain}_{address.lower()}"
+        if cache_key in crypto_cache:
+            return crypto_cache[cache_key]
 
-            response = requests.get(url, timeout=10)
+        try:
+            # Chainlink Feed Registry
+            if chain == "ethereum":
+                try:
+                    base = Web3.to_checksum_address(address)
+                    quote = Web3.to_checksum_address(USD_PROXY)
+                    aggregator_address = self.feed_registry.functions.getFeed(base, quote).call()
+                    aggregator = self.w3.eth.contract(address=aggregator_address, abi=AGGREGATOR_ABI)
+                    round_data = aggregator.functions.latestRoundData().call()
+                    price = round_data[1] / (10 ** DECIMALS)
+                    result = {
+                        "summary": f"*Chainlink Verified Price (ETH)*\nPrice: ${price:,.6f}",
+                        "details": ""
+                    }
+                    crypto_cache[cache_key] = result
+                    return result
+                except Exception as e:
+                    logger.info(f"No Chainlink feed found for {address}: {str(e)}")
+
+            # Dexscreener fallback
+            response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
             response.raise_for_status()
             data = response.json()
 
-            if "pairs" not in data or not data["pairs"]:
-                return {"summary": f"No price data found for {address} on {chain.title()}.", "details": ""}
+            filtered_pairs = [
+                p for p in data.get("pairs", [])
+                if p.get("chainId", "").lower() == chain.lower() or p.get("chainName", "").lower() == chain.lower()
+            ]
 
-            # Use first valid pair result
-            price_data = data["pairs"][0]
-            price_usd = float(price_data.get("priceUsd", 0))
-            token_name = price_data.get("baseToken", {}).get("name", "Unknown Token")
-            token_symbol = price_data.get("baseToken", {}).get("symbol", "")
+            if filtered_pairs:
+                pair = filtered_pairs[0]
+                price = float(pair.get("priceUsd", 0))
+                token_name = pair.get("baseToken", {}).get("name", "Unknown")
+                token_symbol = pair.get("baseToken", {}).get("symbol", "")
+                liquidity = float(pair.get("liquidity", {}).get("usd", 0))
+                volume = float(pair.get("volume", {}).get("h24", 0))
+                logo = pair.get("baseToken", {}).get("logoURI", None)
+                pair_url = pair.get("url", "")
 
-            return {
-                "summary": f"{token_name} ({token_symbol})\nPrice on {chain.title()}: ${price_usd:,.6f}",
-                "details": ""
-            }
+                result = {
+                    "summary": (
+                        f"*{token_name} ({token_symbol}) on {chain.title()}*\n"
+                        f"Price: ${price:,.6f}\n"
+                        f"24h Volume: ${volume:,.0f}\n"
+                        f"Liquidity: ${liquidity:,.0f}\n"
+                        f"[View on Dexscreener]({pair_url})"
+                    ),
+                    "details": f"Logo: {logo}" if logo else ""
+                }
+                crypto_cache[cache_key] = result
+                return result
+
+            # SUI support
+            if chain == "sui":
+                sui_url = f"https://api.suiscan.xyz/v1/coins/{address}"
+                headers = {"accept": "application/json"}
+                sui_response = requests.get(sui_url, headers=headers, timeout=10)
+                sui_response.raise_for_status()
+                data = sui_response.json()
+                price = data.get("price", 0)
+                token_name = data.get("name", "Unknown")
+                result = {
+                    "summary": f"*{token_name} (SUI)*\nPrice: ${price:,.6f}",
+                    "details": ""
+                }
+                crypto_cache[cache_key] = result
+                return result
+
+            # Anthropic fallback
+            return {"summary": get_anthropic_summary(address, chain), "details": ""}
 
         except Exception as e:
-            return {"summary": f"Error fetching price for {address}.", "details": str(e)}
+            return {"summary": f"Error fetching price for {address}.", "details": str(e)}"
