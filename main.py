@@ -37,12 +37,12 @@ def fetch_price_by_contract(address, chain):
 
 if __name__ == "__main__":
     print("🧠 Swarm Price Fetcher\n")
-    chain = input("Enter blockchain (ethereum / solana): ").strip().lower()
+    chain = input("Enter blockchain (ethereum / solana / sui): ").strip().lower()
     address = input("Enter contract address: ").strip()
 
-    if chain in ["ethereum", "solana"]:
+    if chain in ["ethereum", "solana", "sui"]:
         print("\n📡 Fetching...\n")
         result = fetch_price_by_contract(address, chain)
         print(result)
     else:
-        print("❌ Invalid chain. Please enter 'ethereum' or 'solana'.")
+        print("❌ Invalid chain. Please enter 'ethereum', 'solana' or 'sui'.")

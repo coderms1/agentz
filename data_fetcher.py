@@ -1,5 +1,5 @@
 # Finalized data_fetcher.py with expanded token info, dynamic Chainlink support, Dexscreener fallback,
-# SUI (via Birdeye) support, Anthropic fallback, and token logo/volume/liquidity formatting
+# SUI (via Birdeye) support, Anthropic fallback, and token logo/volume/liquidity formatting with source attribution
 
 import requests
 import os
@@ -65,7 +65,7 @@ class DataFetcher:
                     round_data = aggregator.functions.latestRoundData().call()
                     price = round_data[1] / (10 ** DECIMALS)
                     result = {
-                        "summary": f"*Chainlink Verified Price (ETH)*\nPrice: ${price:,.6f}",
+                        "summary": f"*Chainlink Verified Price (ETH)*\nPrice: ${price:,.6f}\nSource: [Chainlink](https://chain.link)",
                         "details": ""
                     }
                     crypto_cache[cache_key] = result
@@ -99,7 +99,7 @@ class DataFetcher:
                         f"Price: ${price:,.6f}\n"
                         f"24h Volume: ${volume:,.0f}\n"
                         f"Liquidity: ${liquidity:,.0f}\n"
-                        f"[View on Dexscreener]({pair_url})"
+                        f"Source: [Dexscreener]({pair_url})"
                     ),
                     "details": f"Logo: {logo}" if logo else ""
                 }
@@ -124,7 +124,8 @@ class DataFetcher:
                         f"*{name} ({symbol}) on SUI (via Birdeye)*\n"
                         f"Price: ${price:,.6f}\n"
                         f"24h Volume: ${volume:,.0f}\n"
-                        f"Liquidity: ${liquidity:,.0f}"
+                        f"Liquidity: ${liquidity:,.0f}\n"
+                        f"Source: [Birdeye](https://birdeye.so/token/{address}?chain=sui)"
                     ),
                     "details": ""
                 }
@@ -132,7 +133,13 @@ class DataFetcher:
                 return result
 
             # Anthropic fallback
-            return {"summary": get_anthropic_summary(address, chain), "details": ""}
+            fallback_summary = get_anthropic_summary(address, chain)
+            result = {
+                "summary": f"*Unknown Contract on {chain.upper()}*
+{fallback_summary}\nSource: Swarm Intelligence (Anthropic)",
+                "details": ""
+            }
+            return result
 
         except Exception as e:
             return {"summary": f"Error fetching price for {address}.", "details": str(e)}"
