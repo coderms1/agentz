@@ -2,22 +2,30 @@ from pycoingecko import CoinGeckoAPI
 
 cg = CoinGeckoAPI()
 
-def get_price_summary(question):
+TOP_COIN_ALIASES = {
+    "btc": "bitcoin",
+    "bitcoin": "bitcoin",
+    "eth": "ethereum",
+    "ethereum": "ethereum",
+    "sol": "solana",
+    "solana": "solana",
+    "sui": "sui",
+    "link": "chainlink",
+    "chainlink": "chainlink",
+    "xrp": "ripple",
+    "ripple": "ripple",
+    "ada": "cardano",
+    "cardano": "cardano"
+}
+
+def get_price_info(question):
     try:
-        question = question.lower()
-        coins = cg.get_coins_list()
-
-        for coin in coins:
-            if coin["id"] in question or coin["symbol"] in question or coin["name"].lower() in question:
-                coin_id = coin["id"]
+        q = question.lower()
+        for alias, coin_id in TOP_COIN_ALIASES.items():
+            if alias in q:
                 data = cg.get_price(ids=coin_id, vs_currencies="usd")
-                price = data.get(coin_id, {}).get("usd")
-                if price is not None:
-                    return f"The current price of {coin['name'].title()} is ${price:,.2f}"
-                else:
-                    return f"⚠️ No price data found for {coin['name'].title()}."
-        
-        return None  # Let narrative agent handle it
-
+                price = data[coin_id]["usd"]
+                return f"The current price of {coin_id.title()} is ${price:,.2f}"
+        return "⚠️ Could not identify crypto."
     except Exception as e:
         return f"⚠️ Error fetching price: {str(e)}"
