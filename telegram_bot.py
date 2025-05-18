@@ -11,8 +11,16 @@ load_dotenv()
 agent = MarketStrategist()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🧠 Swarm Command Bot is live.\nUse /price <chain> <contract_address> to get info.")
+    user = update.effective_user
+    mention = user.mention_html()
 
+    await update.message.reply_html(
+        f"👋 Welcome to trench0r_bot HQ {mention}!! - I'm your friendly AI crypto-analyst. 🧠\n\n"
+        "✅ Type <b>/price &lt;chain&gt; &lt;contract_address&gt;</b> to begin trenching.\n\n"
+        "🌐 Supported chains: Ethereum, Solana, SUI, Base\n"
+        "⚠️ Not financial advice. DYOR."
+    )
+    
 async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if len(context.args) < 2:
