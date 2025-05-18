@@ -1,164 +1,111 @@
-import requests
 import os
-from cachetools import TTLCache
 import logging
-from web3 import Web3
-from anthropic_assistant import get_anthropic_summary
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from market_strategist import MarketStrategist
 
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-crypto_cache = TTLCache(maxsize=100, ttl=300)
 
-FEED_REGISTRY = "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
-USD_PROXY = "0x0000000000000000000000000000000000000348"
-DECIMALS = 8
+agent = MarketStrategist()
+user_sessions = {}
 
-REGISTRY_ABI = [{
-    "inputs": [
-        {"internalType": "address", "name": "base", "type": "address"},
-        {"internalType": "address", "name": "quote", "type": "address"}
-    ],
-    "name": "getFeed",
-    "outputs": [{"internalType": "address", "name": "aggregator", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-}]
+START_MESSAGE = (
+    "👋 Welcome to trench0r_bot HQ {mention}!! - I'm your friendly AI crypto-analyst. 🧠\n\n"
+    "✅ Type /start to begin trenching.\n\n"
+    "🌐 Supported chains: Ethereum, Solana, SUI, Base, Abstract\n"
+    "⚠️ Not financial advice. DYOR."
+)
 
-AGGREGATOR_ABI = [{
-    "inputs": [],
-    "name": "latestRoundData",
-    "outputs": [
-        {"internalType": "uint80", "name": "roundId", "type": "uint80"},
-        {"internalType": "int256", "name": "answer", "type": "int256"},
-        {"internalType": "uint256", "name": "startedAt", "type": "uint256"},
-        {"internalType": "uint256", "name": "updatedAt", "type": "uint256"},
-        {"internalType": "uint80", "name": "answeredInRound", "type": "uint80"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-}]
+def get_main_keyboard(selected_chain=None):
+    chain_display = f"Chain: {selected_chain.title()}" if selected_chain else "Select Chain"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(chain_display, callback_data="select_chain")],
+        [InlineKeyboardButton("Enter Contract Address", callback_data="enter_ca")],
+        [InlineKeyboardButton("Exit", callback_data="exit")]
+    ])
 
-class DataFetcher:
-    def __init__(self, etherscan_api_key, solscan_api_key, basescan_api_key):
-        self.etherscan_api_key = etherscan_api_key
-        self.solscan_api_key = solscan_api_key
-        self.basescan_api_key = basescan_api_key
-        self.w3 = Web3(Web3.HTTPProvider(os.getenv("INFURA_URL")))
-        self.feed_registry = self.w3.eth.contract(address=FEED_REGISTRY, abi=REGISTRY_ABI)
-        self.birdeye_api_key = os.getenv("BIRDEYE_API_KEY")
+def get_chain_selection_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("ETH", callback_data="set_chain_ethereum"),
+            InlineKeyboardButton("SOL", callback_data="set_chain_solana"),
+            InlineKeyboardButton("BASE", callback_data="set_chain_base"),
+        ],
+        [
+            InlineKeyboardButton("SUI", callback_data="set_chain_sui"),
+            InlineKeyboardButton("ABS", callback_data="set_chain_abstract"),
+        ],
+        [InlineKeyboardButton("Back", callback_data="back_main")]
+    ])
 
-    def fetch_price_by_contract(self, address, chain):
-        cache_key = f"{chain}_{address.lower()}"
-        if cache_key in crypto_cache:
-            return crypto_cache[cache_key]
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    mention = update.effective_user.first_name
+    user_sessions[update.effective_chat.id] = {"chain": None, "mode": "idle"}
+    await update.message.reply_text(
+        START_MESSAGE.format(mention=mention),
+        reply_markup=get_main_keyboard()
+    )
 
-        try:
-            # Dexscreener chain-specific endpoint (Primary)
-            chain_map = {
-                "ethereum": "ethereum",
-                "solana": "solana",
-                "sui": "sui",
-                "base": "base",
-                "abstract": "abstract"
-            }
+async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_data = user_sessions.get(query.message.chat_id, {"chain": None, "mode": "idle"})
+    await query.answer()
 
-            if chain in chain_map:
-                try:
-                    url = f"https://api.dexscreener.com/latest/dex/pairs/{chain_map[chain]}/{address}"
-                    res = requests.get(url, timeout=10)
-                    res.raise_for_status()
-                    data = res.json().get("pair", {})
-                    if data:
-                        price = float(data.get("priceUsd", 0))
-                        token_name = data.get("baseToken", {}).get("name", "Unknown")
-                        token_symbol = data.get("baseToken", {}).get("symbol", "")
-                        liquidity = float(data.get("liquidity", {}).get("usd", 0))
-                        volume = float(data.get("volume", {}).get("h24", 0))
-                        logo = data.get("baseToken", {}).get("logoURI", None)
-                        pair_url = data.get("url", f"https://dexscreener.com/{chain}/{address}")
+    if query.data == "select_chain":
+        await query.edit_message_text("🌐 Choose a blockchain:", reply_markup=get_chain_selection_keyboard())
+    elif query.data.startswith("set_chain_"):
+        chain = query.data.replace("set_chain_", "")
+        user_data["chain"] = chain
+        user_data["mode"] = "idle"
+        user_sessions[query.message.chat_id] = user_data
+        await query.edit_message_text(
+            f"✅ Chain set to *{chain.upper()}*. Now enter a contract address.",
+            parse_mode="Markdown",
+            reply_markup=get_main_keyboard(selected_chain=chain)
+        )
+    elif query.data == "enter_ca":
+        user_data["mode"] = "awaiting_ca"
+        await query.edit_message_text("✍️ Please send a contract address:")
+    elif query.data == "exit":
+        await query.edit_message_text("👋 Session ended. Enter /start to begin again!")
+        user_sessions.pop(query.message.chat_id, None)
+    elif query.data == "back_main":
+        await query.edit_message_text("Main Menu:", reply_markup=get_main_keyboard(user_data.get("chain")))
 
-                        result = {
-                            "summary": (
-                                f"*{token_name} ({token_symbol}) on {chain.title()}*\n"
-                                f"Price: ${price:,.6f}\n"
-                                f"24h Volume: ${volume:,.0f}\n"
-                                f"Liquidity: ${liquidity:,.0f}\n"
-                                f"Source: [Dexscreener]({pair_url})"
-                            ),
-                            "details": f"Logo: {logo}" if logo else ""
-                        }
-                        crypto_cache[cache_key] = result
-                        return result
-                except Exception as e:
-                    logger.warning(f"Direct chain lookup failed: {str(e)}")
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_data = user_sessions.get(update.effective_chat.id)
+    if not user_data or user_data.get("mode") != "awaiting_ca":
+        return
 
-            # Dexscreener fallback search
-            search_url = f"https://api.dexscreener.com/latest/dex/search?q={address}"
-            response = requests.get(search_url, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            filtered_pairs = [
-                p for p in data.get("pairs", [])
-                if p.get("chainId", "").lower() == chain.lower() or p.get("chainName", "").lower() == chain.lower()
-            ]
+    address = update.message.text.strip()
+    chain = user_data.get("chain")
+    if not chain:
+        await update.message.reply_text("⚠️ Please select a chain first using the button.")
+        return
 
-            if filtered_pairs:
-                pair = filtered_pairs[0]
-                price = float(pair.get("priceUsd", 0))
-                token_name = pair.get("baseToken", {}).get("name", "Unknown")
-                token_symbol = pair.get("baseToken", {}).get("symbol", "")
-                liquidity = float(pair.get("liquidity", {}).get("usd", 0))
-                volume = float(pair.get("volume", {}).get("h24", 0))
-                logo = pair.get("baseToken", {}).get("logoURI", None)
-                pair_url = pair.get("url", "")
+    await update.message.reply_text("📡 Fetching...")
+    try:
+        result = agent.process(address, chain)
+        text = result["summary"]
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("View Chart", url=f"https://dexscreener.com/{chain}/{address}")],
+            [InlineKeyboardButton("Search another coin", callback_data="enter_ca")],
+            [InlineKeyboardButton("Exit", callback_data="exit")]
+        ])
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {str(e)}")
 
-                result = {
-                    "summary": (
-                        f"*{token_name} ({token_symbol}) on {chain.title()}*\n"
-                        f"Price: ${price:,.6f}\n"
-                        f"24h Volume: ${volume:,.0f}\n"
-                        f"Liquidity: ${liquidity:,.0f}\n"
-                        f"Source: [Dexscreener]({pair_url})"
-                    ),
-                    "details": f"Logo: {logo}" if logo else ""
-                }
-                crypto_cache[cache_key] = result
-                return result
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
 
-            # Birdeye for SUI only
-            if chain == "sui":
-                headers = {"X-API-KEY": self.birdeye_api_key}
-                sui_url = f"https://public-api.birdeye.so/public/token/{address}?include=volume,liquidity"
-                res = requests.get(sui_url, headers=headers, timeout=10)
-                res.raise_for_status()
-                data = res.json().get("data", {})
-                price = float(data.get("priceUsd", 0))
-                name = data.get("name", "Unknown")
-                symbol = data.get("symbol", "")
-                liquidity = data.get("liquidity", {}).get("usd", 0)
-                volume = data.get("volume", {}).get("h24", 0)
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(handle_buttons))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-                result = {
-                    "summary": (
-                        f"*{name} ({symbol}) on SUI (via Birdeye)*\n"
-                        f"Price: ${price:,.6f}\n"
-                        f"24h Volume: ${volume:,.0f}\n"
-                        f"Liquidity: ${liquidity:,.0f}\n"
-                        f"Source: [Birdeye](https://birdeye.so/token/{address}?chain=sui)"
-                    ),
-                    "details": ""
-                }
-                crypto_cache[cache_key] = result
-                return result
-
-            # Final fallback - Anthropic
-            fallback_summary = (
-                f"⛔ Uh oh! CA not found. ⛔\n"
-                f"Hmmm... can't seem to locate *{address}* on {chain.upper()} 🤔\n"
-                f"It must be hidden under a rock somewhere.\n\n"
-                f"💡 Solution:\nCheck it out here: https://dexscreener.com/{chain}/{address}"
-            )
-            return {"summary": fallback_summary, "details": ""}
-
-        except Exception as e:
-            return {"summary": f"Error fetching price for {address}.", "details": str(e)}
+    logger.info("🤖 trench0r_bot running with buttons...")
+    app.run_polling()
