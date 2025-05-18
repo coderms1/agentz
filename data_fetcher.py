@@ -39,9 +39,10 @@ AGGREGATOR_ABI = [{
 }]
 
 class DataFetcher:
-    def __init__(self, etherscan_api_key, solscan_api_key):
+    def __init__(self, etherscan_api_key, solscan_api_key, basescan_api_key):
         self.etherscan_api_key = etherscan_api_key
         self.solscan_api_key = solscan_api_key
+        self.basescan_api_key = basescan_api_key
         self.w3 = Web3(Web3.HTTPProvider(os.getenv("INFURA_URL")))
         self.feed_registry = self.w3.eth.contract(address=FEED_REGISTRY, abi=REGISTRY_ABI)
         self.birdeye_api_key = os.getenv("BIRDEYE_API_KEY")
@@ -69,6 +70,7 @@ class DataFetcher:
                 except Exception as e:
                     logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
+            # Dexscreener fallback (Ethereum, Base, Solana)
             response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
             response.raise_for_status()
             data = response.json()
