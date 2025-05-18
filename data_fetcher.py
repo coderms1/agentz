@@ -70,7 +70,7 @@ class DataFetcher:
                 except Exception as e:
                     logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
-            # Dexscreener fallback (Ethereum, Base, Solana)
+            # Dexscreener fallback (Ethereum, Base, Solana, Abstract)
             response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
             response.raise_for_status()
             data = response.json()
@@ -128,14 +128,12 @@ class DataFetcher:
                 crypto_cache[cache_key] = result
                 return result
 
-            # Simple Anthropic fallback
             fallback_summary = (
                 f"⛔ Uh oh! CA not found. ⛔\n"
-                f"Hmmm... can't seem to locate *{address}* on {chain.title()} 🤔\n"
+                f"Hmmm... can't seem to locate *{address}* on {chain.upper()} 🤔\n"
                 f"It must be hidden under a rock somewhere.\n\n"
-                f"💡 Solution:\nCheck here: [Dexscreener](https://dexscreener.com/{chain}/{address}) or try [Dextools](https://www.dextools.io)"
+                f"💡 Solution:\nCheck it out here: https://dexscreener.com/{chain}/{address}"
             )
-
             result = {
                 "summary": fallback_summary,
                 "details": ""
