@@ -35,13 +35,25 @@ button {
   cursor: pointer;
 }
 
-.result {
+/* .result {
   margin-top: 20px;
   text-align: left;
   background-color: #243447;
   padding: 1em;
   border-radius: 5px;
   font-family: monospace;
+} */
+
+.result {
+  margin-top: 20px;
+  text-align: left;
+  background-color: #243447;
+  padding: 1em;
+  max-width: 100%; /* or remove constraint entirely */
+  word-wrap: break-word;
+  white-space: pre-line;
+  font-family: monospace;
+  font-size: 1rem;
 }
 
 pre {

@@ -52,7 +52,6 @@ class DataFetcher:
             return crypto_cache[cache_key]
 
         try:
-            # Chainlink Feed Registry
             if chain == "ethereum":
                 try:
                     base = Web3.to_checksum_address(address)
@@ -70,7 +69,6 @@ class DataFetcher:
                 except Exception as e:
                     logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
-            # Dexscreener fallback
             response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
             response.raise_for_status()
             data = response.json()
@@ -103,7 +101,6 @@ class DataFetcher:
                 crypto_cache[cache_key] = result
                 return result
 
-            # SUI via Birdeye
             if chain == "sui":
                 headers = {"X-API-KEY": self.birdeye_api_key}
                 url = f"https://public-api.birdeye.so/public/token/{address}?include=volume,liquidity"
@@ -129,13 +126,13 @@ class DataFetcher:
                 crypto_cache[cache_key] = result
                 return result
 
-            # Anthropic fallback
             fallback_summary = get_anthropic_summary(address, chain)
             result = {
                 "summary": (
                     f"*Unknown Contract on {chain.upper()}*\n"
-                    f"{fallback_summary}\n"
-                    f"Source: Swarm Intelligence (Anthropic)"
+                    f"🔎 No price data found for `{address}`\n"
+                    f"🤖 {fallback_summary}\n"
+                    f"🔗 You can also check: [Dexscreener](https://dexscreener.com/{chain}/{address})"
                 ),
                 "details": ""
             }
