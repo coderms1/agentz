@@ -70,7 +70,6 @@ class DataFetcher:
                 except Exception as e:
                     logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
-            # Dexscreener fallback (Ethereum, Base, Solana)
             response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
             response.raise_for_status()
             data = response.json()
