@@ -2,7 +2,6 @@ import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from market_strategist import MarketStrategist
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
