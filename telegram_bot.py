@@ -2,9 +2,9 @@
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.helpers import escape_markdown
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 from market_strategist import MarketStrategist
-from telegram.helpers import escape_markdown
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,9 +13,11 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 agent = MarketStrategist()
 user_sessions = {}
 
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    name = update.effective_user.first_name
+    name = escape_markdown(update.effective_user.first_name or "degen", version=2)
     user_sessions[user_id] = {"chain": None, "expecting_address": False}
 
     keyboard = [
@@ -25,14 +27,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Base", callback_data="chain_base")],
         [InlineKeyboardButton("Abstract", callback_data="chain_abstract")]
     ]
-    
-    safe_name = escape_markdown(name, version=2)
+
     welcome = (
-        f"👋 Welcome to trench0r_bot HQ *{name}*!! – I’m your friendly AI crypto-analyst. 🧠"
-        f"👇 Pick a blockchain to start your contract search:"
+        f"👋 Welcome to trench0r\\_bot HQ *{name}*\\!\\! – I’m your friendly AI crypto\\-analyst\\. 🧠\\n\\n"
+        "👇 Pick a blockchain to start your contract search:"
     )
 
-    await update.message.reply_text(welcome, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(welcome, parse_mode="MarkdownV2", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -43,7 +44,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("chain_"):
         chain = data.split("_")[1]
         user_sessions[user_id] = {"chain": chain, "expecting_address": True}
-        await query.edit_message_text(f"✅ Chain selected: *{chain.upper()}* Now send me a contract address.", parse_mode="Markdown")
+        await query.edit_message_text(f"✅ Chain selected: *{escape_markdown(chain.upper(), version=2)}*\n\n🔍 Now send me a contract address.", parse_mode="MarkdownV2")
     elif data == "restart":
         await start(update, context)
     elif data == "exit":
