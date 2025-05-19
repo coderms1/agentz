@@ -3,29 +3,18 @@ import requests
 def fetch_price_by_contract(address, chain):
     try:
         chain = chain.lower()
-        # Attempt direct chain-specific fetch first
         direct_url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
         response = requests.get(direct_url, timeout=10)
 
         if response.status_code == 200:
             data = response.json()
-            if "pair" in data:
+            if "pair" in data and data["pair"]:
                 pair = data["pair"]
-                price = float(pair.get("priceUsd", 0))
-                token_name = pair.get("baseToken", {}).get("name", "Unknown")
-                token_symbol = pair.get("baseToken", {}).get("symbol", "")
-                pair_url = pair.get("url", "")
+                return fartcat_format(pair, chain, address)
 
-                return (
-                    f"{token_name} ({token_symbol}) on {chain.title()}:\n"
-                    f"Price: ${price:,.6f}\n"
-                    f"Dexscreener: {pair_url}"
-                )
-
-        # Fallback to search API
+        # Fallback to search
         fallback_url = f"https://api.dexscreener.com/latest/dex/search?q={address}"
         response = requests.get(fallback_url, timeout=10)
-        response.raise_for_status()
         data = response.json()
 
         filtered_pairs = [
@@ -35,31 +24,57 @@ def fetch_price_by_contract(address, chain):
         ]
 
         if filtered_pairs:
-            pair = filtered_pairs[0]
-            price = float(pair.get("priceUsd", 0))
-            token_name = pair.get("baseToken", {}).get("name", "Unknown")
-            token_symbol = pair.get("baseToken", {}).get("symbol", "")
-            pair_url = pair.get("url", "")
+            return fartcat_format(filtered_pairs[0], chain, address)
 
-            return (
-                f"{token_name} ({token_symbol}) on {chain.title()}:\n"
-                f"Price: ${price:,.6f}\n"
-                f"Dexscreener: {pair_url}"
-            )
-
-        return f"No price data found for {address} on {chain.title()}."
+        return (
+            f"😾 Couldn't find that token on {chain.title()}.\n"
+            f"Try this chart anyway:\nhttps://dexscreener.com/{chain}/{address}"
+        )
 
     except Exception as e:
-        return f"Error fetching price: {str(e)}"
+        return f"💩 Error sniffing the contract: {str(e)}"
+
+def fartcat_format(pair, chain, address):
+    try:
+        price = float(pair.get("priceUsd", 0) or 0)
+        name = pair.get("baseToken", {}).get("name", "Unknown")
+        symbol = pair.get("baseToken", {}).get("symbol", "")
+        liquidity = float(pair.get("liquidity", {}).get("usd", 0) or 0)
+        volume = float(pair.get("volume", {}).get("h24", 0) or 0)
+        url = pair.get("url", f"https://dexscreener.com/{chain}/{address}")
+
+        import random
+        commentary = random.choice([
+            "😼 Spicy entry. Might claw the charts.",
+            "💨 Smells volatile. My kind of stinker.",
+            "😹 Could be alpha or a fart in the wind.",
+            "🐾 I’ve seen stronger candles in my litterbox.",
+            "😸 Looks tasty. Not financial advice."
+        ])
+
+        return (
+            f"🐱 {name} (${symbol}) on {chain.title()}\n"
+            f"💰 Price: ${price:,.6f}\n"
+            f"📈 24h Volume: ${volume:,.0f}\n"
+            f"💧 Liquidity: ${liquidity:,.0f}\n"
+            f"{commentary}\n"
+            f"🔗 {url}"
+        )
+
+    except Exception as e:
+        return (
+            f"😿 Error formatting token info: {str(e)}\n"
+            f"Here's the chart anyway:\nhttps://dexscreener.com/{chain}/{address}"
+        )
 
 if __name__ == "__main__":
-    print("🧠 Swarm Price Fetcher\n")
-    chain = input("Enter blockchain (ethereum / solana / sui / base / abstract): ").strip().lower()
-    address = input("Enter contract address: ").strip()
+    print("🐾 Welcome to Fartcat CLI Sniffer 💨")
+    chain = input("📡 What chain you sniffin'? (ethereum / solana / sui / base / abstract): ").strip().lower()
+    address = input("🔍 Gimme that contract address: ").strip()
 
     if chain in ["ethereum", "solana", "sui", "base", "abstract"]:
-        print("\n📡 Fetching...\n")
+        print("\n🧠 Sniffing...\n")
         result = fetch_price_by_contract(address, chain)
         print(result)
     else:
-        print("❌ Invalid chain. Please enter: ethereum, solana, sui, base, or abstract.")
+        print("🙀 Invalid chain. Go back and pick something real.")

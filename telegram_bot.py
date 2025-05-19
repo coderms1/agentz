@@ -17,17 +17,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_sessions[user_id] = {"chain": None, "expecting_address": False}
 
     keyboard = [
-        [InlineKeyboardButton("Ethereum", callback_data="chain_ethereum")],
-        [InlineKeyboardButton("Solana", callback_data="chain_solana")],
-        [InlineKeyboardButton("SUI", callback_data="chain_sui")],
-        [InlineKeyboardButton("Base", callback_data="chain_base")],
-        [InlineKeyboardButton("Abstract", callback_data="chain_abstract")]
+        [InlineKeyboardButton("Ethereum 🧅", callback_data="chain_ethereum")],
+        [InlineKeyboardButton("Solana 🐬", callback_data="chain_solana")],
+        [InlineKeyboardButton("SUI 🧪", callback_data="chain_sui")],
+        [InlineKeyboardButton("Base 🧻", callback_data="chain_base")],
+        [InlineKeyboardButton("Abstract 🧠", callback_data="chain_abstract")]
     ]
 
     welcome = (
-        f"👋 Welcome to trench0r_bot HQ {name}!\n"
-        f"🧠 I’m your friendly AI crypto-analyst.\n"
-        f"👇 Pick a blockchain to start your contract search:"
+        f"😼 Yo {name}...\n"
+        f"I'm Fartcat. I analyze contracts between naps and power dumps.\n"
+        f"💨 Pick a chain before I claw your wallet."
     )
 
     if update.message:
@@ -45,7 +45,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chain = data.split("_")[1]
         user_sessions[user_id] = {"chain": chain, "expecting_address": True}
         await query.edit_message_text(
-            f"✅ Chain selected: {chain.upper()}\nSend a contract address to analyze."
+            f"✅ You picked {chain.upper()}.\n😽 Now toss me a contract address to sniff."
         )
 
     elif data == "restart":
@@ -53,17 +53,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "exit":
         user_sessions.pop(user_id, None)
-        await query.edit_message_text("👋 Thanks for trenching! Type /start to begin again.")
+        await query.edit_message_text("🚪 I’m out. Type /start if you want me to fart on more charts later.")
 
     elif data == "noop":
-        await query.answer("Chain selection is locked. Pick a new one with /start.", show_alert=False)
+        await query.answer("😾 You already picked a chain. Try again with /start if you must.", show_alert=False)
 
 async def send_result_with_buttons(update: Update, chain, address, summary):
     keyboard = [
-        [InlineKeyboardButton(f"🌐 Chain: {chain.upper()}", callback_data="noop")],
-        [InlineKeyboardButton("📈 View Full Chart", url=f"https://dexscreener.com/{chain}/{address}")],
-        [InlineKeyboardButton("🔍 Search Another Coin", callback_data="restart")],
-        [InlineKeyboardButton("❌ Exit", callback_data="exit")]
+        [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="noop")],
+        [InlineKeyboardButton("📈 Sniff the Chart", url=f"https://dexscreener.com/{chain}/{address}")],
+        [InlineKeyboardButton("💩 Show Me Another Stinker", callback_data="restart")],
+        [InlineKeyboardButton("❌ I'm Done Here", callback_data="exit")]
     ]
     await update.message.reply_text(summary, reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -75,19 +75,29 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chain = session["chain"]
         address = update.message.text.strip()
         result = agent.process(address, chain)
-        await send_result_with_buttons(update, chain, address, result["summary"])
+        await send_result_with_buttons(update, chain, address, fartcat_wrap(result["summary"]))
         session["expecting_address"] = False
     else:
-        await update.message.reply_text("❗ Please select a chain using /start to begin.")
+        await update.message.reply_text("😿 You didn’t pick a chain. Type /start before I knock over your portfolio.")
+
+def fartcat_wrap(summary: str) -> str:
+    tail_commentary = [
+        "😼 This one’s spicy.",
+        "💨 I smell a pump... or a dump.",
+        "😹 Not financial advice, but I did bury this chart.",
+        "🐾 Might be moon, might be mold.",
+        "🚽 Litterbox-worthy. You decide."
+    ]
+    import random
+    return f"{summary}\n\n{random.choice(tail_commentary)}"
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    logger.info("🤖 Swarm Telegram Bot is running...")
+    logger.info("😼 Fartcat Bot is gassing up...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
