@@ -1,8 +1,3 @@
-# Finalized data_fetcher.py with expanded token info, dynamic Chainlink support,
-# Dexscreener fallback, SUI (via Birdeye) support, BASE and ABSTRACT (via Dexscreener),
-# and token logo/volume/liquidity formatting with source attribution.
-# Includes improved token detection using Dexscreener's /latest/dex/pairs/{chain}/{address} endpoint
-
 import requests
 import os
 from cachetools import TTLCache
@@ -67,7 +62,7 @@ class DataFetcher:
                     round_data = aggregator.functions.latestRoundData().call()
                     price = round_data[1] / (10 ** DECIMALS)
                     result = {
-                        "summary": f"*Chainlink Verified Price (ETH)*\nPrice: ${price:,.6f}\nSource: [Chainlink](https://chain.link)",
+                        "summary": f"Chainlink Verified Price (ETH)\nPrice: ${price:,.6f}\nSource: https://chain.link",
                         "details": ""
                     }
                     crypto_cache[cache_key] = result
@@ -75,34 +70,32 @@ class DataFetcher:
                 except Exception as e:
                     logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
-            # Direct Dexscreener pair lookup
-            ds_url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
-            ds_res = requests.get(ds_url, timeout=10)
-            if ds_res.status_code == 200:
-                pair = ds_res.json().get("pair", {})
-                if pair:
-                    price = float(pair.get("priceUsd", 0))
-                    token_name = pair.get("baseToken", {}).get("name", "Unknown")
-                    token_symbol = pair.get("baseToken", {}).get("symbol", "")
-                    liquidity = float(pair.get("liquidity", {}).get("usd", 0))
-                    volume = float(pair.get("volume", {}).get("h24", 0))
-                    logo = pair.get("baseToken", {}).get("logoURI", None)
-                    pair_url = pair.get("url", "")
+            # Dexscreener fallback (Ethereum, Base, Solana, Abstract)
+            response = requests.get(f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}", timeout=10)
+            if response.status_code == 200:
+                data = response.json().get("pair", {})
+                if data:
+                    price = float(data.get("priceUsd", 0))
+                    token_name = data.get("baseToken", {}).get("name", "Unknown")
+                    token_symbol = data.get("baseToken", {}).get("symbol", "")
+                    liquidity = float(data.get("liquidity", {}).get("usd", 0))
+                    volume = float(data.get("volume", {}).get("h24", 0))
+                    logo = data.get("baseToken", {}).get("logoURI", None)
+                    pair_url = data.get("url", "")
 
                     result = {
                         "summary": (
-                            f"*{token_name} ({token_symbol}) on {chain.title()}*\n"
+                            f"{token_name} ({token_symbol}) on {chain.title()}\n"
                             f"Price: ${price:,.6f}\n"
                             f"24h Volume: ${volume:,.0f}\n"
                             f"Liquidity: ${liquidity:,.0f}\n"
-                            f"Source: [Dexscreener]({pair_url})"
+                            f"Source: {pair_url}"
                         ),
                         "details": f"Logo: {logo}" if logo else ""
                     }
                     crypto_cache[cache_key] = result
                     return result
 
-            # SUI fallback via Birdeye
             if chain == "sui":
                 headers = {"X-API-KEY": self.birdeye_api_key}
                 url = f"https://public-api.birdeye.so/public/token/{address}?include=volume,liquidity"
@@ -117,31 +110,28 @@ class DataFetcher:
 
                 result = {
                     "summary": (
-                        f"*{name} ({symbol}) on SUI (via Birdeye)*\n"
+                        f"{name} ({symbol}) on SUI (via Birdeye)\n"
                         f"Price: ${price:,.6f}\n"
                         f"24h Volume: ${volume:,.0f}\n"
                         f"Liquidity: ${liquidity:,.0f}\n"
-                        f"Source: [Birdeye](https://birdeye.so/token/{address}?chain=sui)"
+                        f"Source: https://birdeye.so/token/{address}?chain=sui"
                     ),
                     "details": ""
                 }
                 crypto_cache[cache_key] = result
                 return result
 
-            # Final fallback
             fallback_summary = (
-                f"⛔ Uh oh! CA not found. ⛔\n"
-                f"Hmmm... can't seem to locate *{address}* on {chain.upper()} 🤔\n"
-                f"It must be hidden under a rock somewhere.\n\n"
-                f"💡 Solution:\nCheck it here: https://dexscreener.com/{chain}/{address}"
+                f"⛔ Contract not found.\n"
+                f"No price data available for {address} on {chain.upper()}.\n\n"
+                f"Try searching it manually:\n"
+                f"https://dexscreener.com/{chain}/{address}"
             )
-            return {
+            result = {
                 "summary": fallback_summary,
                 "details": ""
             }
+            return result
 
         except Exception as e:
-            return {
-                "summary": f"⚠️ Error fetching price for {address}.",
-                "details": str(e)
-            }
+            return {"summary": f"Error fetching price for {address}.", "details": str(e)}
