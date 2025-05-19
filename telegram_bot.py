@@ -44,11 +44,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             f"✅ Chain selected: {chain.upper()}\nSend a contract address to analyze."
         )
+
     elif data == "restart":
         await start(update, context)
+
     elif data == "exit":
         user_sessions.pop(user_id, None)
         await query.edit_message_text("👋 Thanks for trenching! Type /start to begin again.")
+
+    elif data == "noop":
+        await query.answer("Chain selection is locked. Pick a new one with /start.", show_alert=False)
 
 async def send_result_with_buttons(update: Update, chain, address, summary):
     keyboard = [
@@ -80,5 +85,5 @@ def main():
     logger.info("🤖 Swarm Telegram Bot is running...")
     app.run_polling()
 
-if __name__ == "__main__":
+if name == "__main__":
     main()

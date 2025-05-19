@@ -9,134 +9,68 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=lo
 logger = logging.getLogger(__name__)
 crypto_cache = TTLCache(maxsize=100, ttl=300)
 
-FEED_REGISTRY = "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
-USD_PROXY = "0x0000000000000000000000000000000000000348"
-DECIMALS = 8
-
-REGISTRY_ABI = [{
-    "inputs": [
-        {"internalType": "address", "name": "base", "type": "address"},
-        {"internalType": "address", "name": "quote", "type": "address"}
-    ],
-    "name": "getFeed",
-    "outputs": [{"internalType": "address", "name": "aggregator", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-}]
-
-AGGREGATOR_ABI = [{
-    "inputs": [],
-    "name": "latestRoundData",
-    "outputs": [
-        {"internalType": "uint80", "name": "roundId", "type": "uint80"},
-        {"internalType": "int256", "name": "answer", "type": "int256"},
-        {"internalType": "uint256", "name": "startedAt", "type": "uint256"},
-        {"internalType": "uint256", "name": "updatedAt", "type": "uint256"},
-        {"internalType": "uint80", "name": "answeredInRound", "type": "uint80"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-}]
-
 class DataFetcher:
-    def __init__(self, etherscan_api_key, solscan_api_key, basescan_api_key):
-        self.etherscan_api_key = etherscan_api_key
-        self.solscan_api_key = solscan_api_key
-        self.basescan_api_key = basescan_api_key
-        self.w3 = Web3(Web3.HTTPProvider(os.getenv("INFURA_URL")))
-        self.feed_registry = self.w3.eth.contract(address=FEED_REGISTRY, abi=REGISTRY_ABI)
-        self.birdeye_api_key = os.getenv("BIRDEYE_API_KEY")
-
     def fetch_price_by_contract(self, address, chain):
         cache_key = f"{chain}_{address.lower()}"
         if cache_key in crypto_cache:
             return crypto_cache[cache_key]
 
         try:
-            if chain == "ethereum":
-                try:
-                    base = Web3.to_checksum_address(address)
-                    quote = Web3.to_checksum_address(USD_PROXY)
-                    aggregator_address = self.feed_registry.functions.getFeed(base, quote).call()
-                    aggregator = self.w3.eth.contract(address=aggregator_address, abi=AGGREGATOR_ABI)
-                    round_data = aggregator.functions.latestRoundData().call()
-                    price = round_data[1] / (10 ** DECIMALS)
+            chain = chain.lower()
+            # Primary attempt: chain-specific Dexscreener endpoint
+            direct_url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
+            response = requests.get(direct_url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if "pair" in data:
+                    pair = data["pair"]
+                    price = float(pair.get("priceUsd", 0))
+                    token_name = pair.get("baseToken", {}).get("name", "Unknown")
+                    token_symbol = pair.get("baseToken", {}).get("symbol", "")
+                    pair_url = pair.get("url", "")
                     result = {
-                        "summary": f"Chainlink Verified Price (ETH)\nPrice: ${price:,.6f}\nSource: https://chain.link",
-                        "details": ""
+                        "summary": (
+                            f"{token_name} ({token_symbol}) on {chain.upper()}\n"
+                            f"Price: ${price:,.6f}\n"
+                            f"Source: {pair_url}"
+                        )
                     }
                     crypto_cache[cache_key] = result
                     return result
-                except Exception as e:
-                    logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
-            response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
+            # Fallback search by address
+            search_url = f"https://api.dexscreener.com/latest/dex/search?q={address}"
+            response = requests.get(search_url, timeout=10)
             response.raise_for_status()
             data = response.json()
-
             filtered_pairs = [
                 p for p in data.get("pairs", [])
-                if p.get("chainId", "").lower() == chain.lower() or p.get("chainName", "").lower() == chain.lower()
+                if p.get("chainId", "").lower() == chain or p.get("chainName", "").lower() == chain
             ]
-
             if filtered_pairs:
                 pair = filtered_pairs[0]
                 price = float(pair.get("priceUsd", 0))
                 token_name = pair.get("baseToken", {}).get("name", "Unknown")
                 token_symbol = pair.get("baseToken", {}).get("symbol", "")
-                liquidity = float(pair.get("liquidity", {}).get("usd", 0))
-                volume = float(pair.get("volume", {}).get("h24", 0))
-                logo = pair.get("baseToken", {}).get("logoURI", None)
                 pair_url = pair.get("url", "")
-
                 result = {
                     "summary": (
-                        f"{token_name} ({token_symbol}) on {chain.title()}\n"
+                        f"{token_name} ({token_symbol}) on {chain.upper()}\n"
                         f"Price: ${price:,.6f}\n"
-                        f"24h Volume: ${volume:,.0f}\n"
-                        f"Liquidity: ${liquidity:,.0f}\n"
                         f"Source: {pair_url}"
-                    ),
-                    "details": f"Logo: {logo}" if logo else ""
+                    )
                 }
                 crypto_cache[cache_key] = result
                 return result
 
-            if chain == "sui":
-                headers = {"X-API-KEY": self.birdeye_api_key}
-                url = f"https://public-api.birdeye.so/public/token/{address}?include=volume,liquidity"
-                res = requests.get(url, headers=headers, timeout=10)
-                res.raise_for_status()
-                data = res.json().get("data", {})
-                price = float(data.get("priceUsd", 0))
-                name = data.get("name", "Unknown")
-                symbol = data.get("symbol", "")
-                liquidity = data.get("liquidity", {}).get("usd", 0)
-                volume = data.get("volume", {}).get("h24", 0)
-
-                result = {
-                    "summary": (
-                        f"{name} ({symbol}) on SUI (via Birdeye)\n"
-                        f"Price: ${price:,.6f}\n"
-                        f"24h Volume: ${volume:,.0f}\n"
-                        f"Liquidity: ${liquidity:,.0f}\n"
-                        f"Source: https://birdeye.so/token/{address}?chain=sui"
-                    ),
-                    "details": ""
-                }
-                crypto_cache[cache_key] = result
-                return result
-
-            fallback_summary = (
-                f"⛔ Contract not found.\n"
-                f"No price data available for {address} on {chain.upper()}.\n\n"
-                f"Try searching it manually:\nhttps://dexscreener.com/{chain}/{address}"
-            )
             result = {
-                "summary": fallback_summary,
-                "details": ""
+                "summary": (
+                    f"⛔ Contract not found.\n"
+                    f"No price data available for {address} on {chain.upper()}.\n\n"
+                    f"Try searching it manually:\nhttps://dexscreener.com/{chain}/{address}"
+                )
             }
             return result
 
         except Exception as e:
-            return {"summary": f"Error fetching price for {address}.", "details": str(e)}
+            return {"summary": f"Error fetching price for {address}: {str(e)}"}
