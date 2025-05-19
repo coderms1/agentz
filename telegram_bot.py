@@ -26,8 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     welcome = (
-        f"👋 Welcome to trench0r_bot HQ *{name}*!
-"
+        f"👋 Welcome to trench0r_bot HQ *{name}*!"
         f"🧠 – I’m your friendly AI crypto-analyst, here to help you surf some CA's..
 
 "
