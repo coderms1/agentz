@@ -27,9 +27,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome = (
         f"👋 Welcome to trench0r_bot HQ *{name}*!"
-        f"🧠 – I’m your friendly AI crypto-analyst, here to help you surf some CA's..
-
-"
+        f"🧠 – I’m your friendly AI crypto-analyst, here to help you surf some CA's.."
         f"👇 Pick a blockchain to start your contract search:"
     )
 
@@ -45,9 +43,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chain = data.split("_")[1]
         user_sessions[user_id] = {"chain": chain, "expecting_address": True}
         await query.edit_message_text(
-            f"✅ Chain selected: *{chain.upper()}*
-
-🔍 Now send me a contract address.",
+            f"✅ Chain selected: *{chain.upper()}* 🔍 Now send me a contract address.",
             parse_mode="Markdown"
         )
     elif data == "restart":
