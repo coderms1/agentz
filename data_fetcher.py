@@ -70,31 +70,37 @@ class DataFetcher:
                 except Exception as e:
                     logger.info(f"No Chainlink feed found for {address}: {str(e)}")
 
-            # Dexscreener fallback (Ethereum, Base, Solana, Abstract)
-            response = requests.get(f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}", timeout=10)
-            if response.status_code == 200:
-                data = response.json().get("pair", {})
-                if data:
-                    price = float(data.get("priceUsd", 0))
-                    token_name = data.get("baseToken", {}).get("name", "Unknown")
-                    token_symbol = data.get("baseToken", {}).get("symbol", "")
-                    liquidity = float(data.get("liquidity", {}).get("usd", 0))
-                    volume = float(data.get("volume", {}).get("h24", 0))
-                    logo = data.get("baseToken", {}).get("logoURI", None)
-                    pair_url = data.get("url", "")
+            response = requests.get(f"https://api.dexscreener.com/latest/dex/search?q={address}", timeout=10)
+            response.raise_for_status()
+            data = response.json()
 
-                    result = {
-                        "summary": (
-                            f"{token_name} ({token_symbol}) on {chain.title()}\n"
-                            f"Price: ${price:,.6f}\n"
-                            f"24h Volume: ${volume:,.0f}\n"
-                            f"Liquidity: ${liquidity:,.0f}\n"
-                            f"Source: {pair_url}"
-                        ),
-                        "details": f"Logo: {logo}" if logo else ""
-                    }
-                    crypto_cache[cache_key] = result
-                    return result
+            filtered_pairs = [
+                p for p in data.get("pairs", [])
+                if p.get("chainId", "").lower() == chain.lower() or p.get("chainName", "").lower() == chain.lower()
+            ]
+
+            if filtered_pairs:
+                pair = filtered_pairs[0]
+                price = float(pair.get("priceUsd", 0))
+                token_name = pair.get("baseToken", {}).get("name", "Unknown")
+                token_symbol = pair.get("baseToken", {}).get("symbol", "")
+                liquidity = float(pair.get("liquidity", {}).get("usd", 0))
+                volume = float(pair.get("volume", {}).get("h24", 0))
+                logo = pair.get("baseToken", {}).get("logoURI", None)
+                pair_url = pair.get("url", "")
+
+                result = {
+                    "summary": (
+                        f"{token_name} ({token_symbol}) on {chain.title()}\n"
+                        f"Price: ${price:,.6f}\n"
+                        f"24h Volume: ${volume:,.0f}\n"
+                        f"Liquidity: ${liquidity:,.0f}\n"
+                        f"Source: {pair_url}"
+                    ),
+                    "details": f"Logo: {logo}" if logo else ""
+                }
+                crypto_cache[cache_key] = result
+                return result
 
             if chain == "sui":
                 headers = {"X-API-KEY": self.birdeye_api_key}
@@ -124,8 +130,7 @@ class DataFetcher:
             fallback_summary = (
                 f"⛔ Contract not found.\n"
                 f"No price data available for {address} on {chain.upper()}.\n\n"
-                f"Try searching it manually:\n"
-                f"https://dexscreener.com/{chain}/{address}"
+                f"Try searching it manually:\nhttps://dexscreener.com/{chain}/{address}"
             )
             result = {
                 "summary": fallback_summary,

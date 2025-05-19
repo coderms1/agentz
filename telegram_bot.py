@@ -25,8 +25,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     welcome = (
-        f"Welcome to trench0r_bot HQ {name}!\n"
-        f"I'm your AI crypto analyst. Choose a chain to begin:"
+        f"👋 Welcome to trench0r_bot HQ {name}!\n"
+        f"🧠 I’m your friendly AI crypto-analyst.\n"
+        f"👇 Pick a blockchain to start your contract search:"
     )
 
     await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -41,20 +42,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chain = data.split("_")[1]
         user_sessions[user_id] = {"chain": chain, "expecting_address": True}
         await query.edit_message_text(
-            f"Chain selected: {chain.upper()}\nSend a contract address to analyze."
+            f"✅ Chain selected: {chain.upper()}\nSend a contract address to analyze."
         )
     elif data == "restart":
         await start(update, context)
     elif data == "exit":
         user_sessions.pop(user_id, None)
-        await query.edit_message_text("Thanks for trenching! Type /start to run it again.")
+        await query.edit_message_text("👋 Thanks for trenching! Type /start to begin again.")
 
 async def send_result_with_buttons(update: Update, chain, address, summary):
     keyboard = [
-        [InlineKeyboardButton(f"Chain: {chain.upper()}", callback_data="noop")],
-        [InlineKeyboardButton("View Full Chart", url=f"https://dexscreener.com/{chain}/{address}")],
-        [InlineKeyboardButton("Search Another Coin", callback_data="restart")],
-        [InlineKeyboardButton("Exit", callback_data="exit")]
+        [InlineKeyboardButton(f"🌐 Chain: {chain.upper()}", callback_data="noop")],
+        [InlineKeyboardButton("📈 View Full Chart", url=f"https://dexscreener.com/{chain}/{address}")],
+        [InlineKeyboardButton("🔍 Search Another Coin", callback_data="restart")],
+        [InlineKeyboardButton("❌ Exit", callback_data="exit")]
     ]
     await update.message.reply_text(summary, reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -69,14 +70,14 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_result_with_buttons(update, chain, address, result["summary"])
         session["expecting_address"] = False
     else:
-        await update.message.reply_text("Please start with /start and pick a chain.")
+        await update.message.reply_text("❗ Please select a chain using /start to begin.")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    logger.info("Swarm Telegram Bot is running...")
+    logger.info("🤖 Swarm Telegram Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
