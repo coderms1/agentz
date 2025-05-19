@@ -30,7 +30,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👇 Pick a blockchain to start your contract search:"
     )
 
-    await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
+    if update.message:
+        await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
+    elif update.callback_query:
+        await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -85,5 +88,6 @@ def main():
     logger.info("🤖 Swarm Telegram Bot is running...")
     app.run_polling()
 
-if name == "__main__":
+
+if __name__ == "__main__":
     main()
