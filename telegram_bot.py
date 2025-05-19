@@ -3,6 +3,9 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 from market_strategist import MarketStrategist
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -12,6 +15,7 @@ agent = MarketStrategist()
 user_sessions = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("🐾 /start command triggered")
     user_id = update.effective_user.id
     name = update.effective_user.first_name or "degen"
     user_sessions[user_id] = {"chain": None, "expecting_address": False}
@@ -25,9 +29,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     welcome = (
-        f"😼 Yo {name}...\n"
-        f"I'm Fartcat. I analyze contracts between naps and power dumps.\n"
-        f"💨 Pick a chain before I claw your wallet."
+        "😼 Yo, I’m Fartcat.\n"
+        "I sniff contracts and roast charts.\n"
+        "You degen, I judge. That’s the deal. 💩\n\n"
+        "👇 Enter /start and then pick a chain to start sniffing:\n"
+        "• Ethereum 🧅\n"
+        "• Solana 🐬\n"
+        "• SUI 🧪\n"
+        "• Base 🧻\n"
+        "• Abstract 🧠\n\n"
+        "Then drop a contract address and I’ll do my thing.\n"
+        "💨 I might help. I might just fart on it. No promises."
     )
 
     if update.message:
