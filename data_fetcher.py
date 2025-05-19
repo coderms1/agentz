@@ -78,10 +78,11 @@ class DataFetcher:
                 )
             }
 
+            cache_key = f"{chain}_{address.lower()}"
             crypto_cache[cache_key] = result
             return result
 
         except Exception as e:
             return {
-                "summary": f"🤢 Error formatting result: {str(e)}\nHere’s the chart anyway:\nhttps://dexscreener.com/{chain}/{address}"
+                "summary": f"🤢 Error formatting result: {str(e)}\nHere is the chart anyway:\nhttps://dexscreener.com/{chain}/{address}"
             }

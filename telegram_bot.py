@@ -5,12 +5,16 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 from market_strategist import MarketStrategist
 from dotenv import load_dotenv
 
+# ✅ Load .env and confirm token loaded
 load_dotenv()
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+if not BOT_TOKEN:
+    raise EnvironmentError("❌ TELEGRAM_BOT_TOKEN not found in .env file")
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 agent = MarketStrategist()
 user_sessions = {}
 
@@ -33,10 +37,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "I sniff contracts and roast charts.\n"
         "You degen, I judge. That’s the deal. 💩\n\n"
         "👇 Enter /start and then pick a chain to start sniffing:\n"
-        "• Ethereum 🧅\n"
+        "• Ethereum 🥅\n"
         "• Solana 🐬\n"
         "• SUI 🧪\n"
-        "• Base 🧻\n"
+        "• Base 🪛\n"
         "• Abstract 🧠\n\n"
         "Then drop a contract address and I’ll do my thing.\n"
         "💨 I might help. I might just fart on it. No promises."
