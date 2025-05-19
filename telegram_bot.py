@@ -1,4 +1,3 @@
-
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -26,8 +25,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     welcome = (
-        f"👋 Welcome to trench0r_bot HQ *{name}*!"
-        f"🧠 – I’m your friendly AI crypto-analyst, here to help you surf some CA's.."
+        f"👋 Welcome to trench0r_bot HQ *{name}*!\n"
+        f"🧠 I’m your friendly AI crypto-analyst, here to help you surf some CA's.\n\n"
         f"👇 Pick a blockchain to start your contract search:"
     )
 
