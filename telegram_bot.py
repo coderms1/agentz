@@ -37,13 +37,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome = (
         "PURRR-FECTO! 🐱\n"
-        "👇 Select a chain to start sniffing:\n\n"
-        "• Ethereum 🧠\n"
-        "• Solana 💊\n"
-        "• SUI 💦\n"
-        "• Base 🔵\n"
-        "• Abstract 🧪\n\n"
-        "Then drop a contract address and I’ll do my thing.\n"
+        "🐽 Sniff mode engaged.\n\n"
+        "1️⃣ Pick a chain below: ⛓️\n"
+        "2️⃣ Toss me a CA 📃\n\n"
+        "Then I’ll do my thing. 🙀\n\n"
         "💨 I might help. I might just fart on it. No promises."
     )
 
@@ -54,20 +51,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     summary = (
-        "🐈💨 *Who is Fartcat?*\n\n"
-        "I’m Fartcat – your degenerate chart-sniffing companion.\n"
-        "I inspect contract addresses across blockchains and spit back the good, the bad, and the stinky.\n"
-        "Whether it’s moon fuel or just a pile of rug, I’ll let you know.\n\n"
-        "🚀 Contract: `0xFARTCATFARTCATFARTCATFARTCAT` *(placeholder)*\n"
-        "📲 Telegram: [@Fartcat_bot](https://t.me/Fartcat_bot)\n"
-        "𝕏 Twitter: [@Fartcat_bot](https://x.com/Fartcat_bot)\n"
-        "🌐 Website: https://fartcat.agent.com\n\n"
-        "*Available Commands:*\n"
-        "/start – Begin sniffing contracts\n"
-        "/info – Get this glorious info\n"
-        "/help – Shows usage and instructions\n"
-        "/exit – Say goodbye to Fartcat"
+        "🐈💨 *WHO IS FARTCAT?*\n\n"
+        "I’m Fartcat – part feline, part blockchain bloodhound.\n"
+        "When you drop a contract address, I dig into the data and cough up insights faster than a hairball.\n"
+        "Sniffing rugs, roasting charts, and sometimes just leaving a stink behind... that's my game. 💩\n\n"
+        "📍 *Token Details:*\n"
+        "• 💩 Contract: `0xFARTCATFARTCATFARTCATFARTCAT` *(placeholder)*\n"
+        "• 🗨️ Telegram: [@Fartcat_bot](https://t.me/Fartcat_bot)\n"
+        "• 🐦 Twitter (𝕏): [@Fartcat_bot](https://x.com/Fartcat_bot)\n"
+        "• 🌐 Website: https://fartcat.agent.com\n\n"
+        "🛠️ *What I Can Do:*\n"
+        "• /start – Activate sniff mode and pick a chain\n"
+        "• /info – Who I am and how to use me\n"
+        "• /help – Quick guide on sniffing\n"
+        "• /exit – End the current session with me\n\n"
+        "Just pick a chain, drop a contract, and I’ll do the dirty work.\n"
+        "💨 No guarantees... just vibes."
     )
+
     await update.message.reply_text(summary, disable_web_page_preview=True)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
