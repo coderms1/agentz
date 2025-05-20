@@ -8,6 +8,23 @@ class DataFetcher:
     def __init__(self):
         pass
 
+    def assess_chart_health(self, liquidity, volume, fdv):
+        score = 0
+        if liquidity > 50000:
+            score += 1
+        if volume > 25000:
+            score += 1
+        if 1_000_000 <= fdv <= 100_000_000:
+            score += 1
+
+        if score == 3:
+            return "🟢 Strong"
+        elif score == 2:
+            return "🟡 Average"
+        elif score == 1:
+            return "🟠 Weak"
+        else:
+            return "🔴 Trash"
     def fetch_price_by_contract(self, address, chain):
         cache_key = f"{chain}_{address.lower()}"
         if cache_key in crypto_cache:
@@ -60,6 +77,7 @@ class DataFetcher:
             url = pair.get("url", f"https://dexscreener.com/{chain}/{address}")
 
             fdv = float(pair.get("fdv", 0) or 0)
+            health = self.assess_chart_health(liquidity, volume, fdv)
             lp_locked_val = pair.get("liquidity", {}).get("locked")
             lp_locked = "🔥" if lp_locked_val and str(lp_locked_val).lower() != "false" and str(lp_locked_val) != "0" else "💀"
             launchpad = pair.get("pairCreatedSource", {}).get("name", "Unknown")
@@ -74,12 +92,13 @@ class DataFetcher:
 
             result = {
                 "summary": (
-                    f"{name} (${symbol}) on {chain.title()} via {launchpad}\n"
-                    f"💸 Price: ${price:,.6f}\n"
-                    f"📊 24h Volume: ${volume:,.0f}\n"
-                    f"💧 Liquidity: ${liquidity:,.0f} | LP: {lp_locked}\n"
-                    f"📈 FDV: ${fdv:,.0f}\n"
-                    f"{flavor}\n"
+                    f"*{name}* (${symbol}) on *{chain.title()}* via *{launchpad}*\n"
+                    f"*💸 Price:* ${price:,.6f}\n"
+                    f"*📊 24h Volume:* ${volume:,.0f}\n"
+                    f"*💧 Liquidity:* ${liquidity:,.0f} | LP: {lp_locked}\n"
+                    f"*📈 FDV:* ${fdv:,.0f}\n"
+                    f"*🩺 Chart Health:* {health}\n"
+                    f"_{flavor}_\n"
                     f"🔗 {url}"
                 )
             }
