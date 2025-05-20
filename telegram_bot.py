@@ -1,14 +1,17 @@
 import os
 import logging
+import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    ContextTypes, CallbackQueryHandler, filters
+)
 from market_strategist import MarketStrategist
 from dotenv import load_dotenv
 
-# ✅ Load .env and confirm token loaded
 load_dotenv()
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not BOT_TOKEN:
     raise EnvironmentError("❌ TELEGRAM_BOT_TOKEN not found in .env file")
 
@@ -37,10 +40,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "I sniff contracts and roast charts.\n"
         "You degen, I judge. That’s the deal. 💩\n\n"
         "👇 Enter /start and then pick a chain to start sniffing:\n"
-        "• Ethereum 🥅\n"
+        "• Ethereum 🧅\n"
         "• Solana 🐬\n"
         "• SUI 🧪\n"
-        "• Base 🪛\n"
+        "• Base 🧻\n"
         "• Abstract 🧠\n\n"
         "Then drop a contract address and I’ll do my thing.\n"
         "💨 I might help. I might just fart on it. No promises."
@@ -63,14 +66,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             f"✅ You picked {chain.upper()}.\n😽 Now toss me a contract address to sniff."
         )
-
     elif data == "restart":
         await start(update, context)
-
     elif data == "exit":
         user_sessions.pop(user_id, None)
-        await query.edit_message_text("🚪 I’m out. Type /start if you want me to fart on more charts later.")
-
+        await query.edit_message_text("👃 Smell ya later! Type /start if you wanna sniff again.")
     elif data == "noop":
         await query.answer("😾 You already picked a chain. Try again with /start if you must.", show_alert=False)
 
@@ -97,35 +97,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("😿 You didn’t pick a chain. Type /start before I knock over your portfolio.")
 
 def fartcat_wrap(summary: str) -> str:
-    tail_commentary = [
+    tails = [
         "😼 This one’s spicy.",
         "💨 I smell a pump... or a dump.",
         "😹 Not financial advice, but I did bury this chart.",
         "🐾 Might be moon, might be mold.",
         "🚽 Litterbox-worthy. You decide."
     ]
-    import random
-    return f"{summary}\n\n{random.choice(tail_commentary)}"
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "😼 *Fartcat Help Menu*\n\n"
-        "1. Type /start to wake me up.\n"
-        "2. Pick a chain to sniff.\n"
-        "3. Paste a contract address.\n\n"
-        "I'll roast the chart, give you a summary, and probably fart.\n"
-        "Not financial advice. Just feline intuition. 💨"
-    )
-    await update.message.reply_text(help_text)
+    return f"{summary}\n\n{random.choice(tails)}"
 
-async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    info_text = (
-        "👃 *About Fartcat:*\n"
-        "I’m a snarky crypto feline trained to sniff your degenerate charts.\n"
-        "Built by Zim and ChadGPT.\n\n"
-        "I might help... or I might just claw your portfolio 🐾"
-    )
-    await update.message.reply_text(info_text)
-    
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
