@@ -1,3 +1,4 @@
+# telegram_bot.py
 import os
 import logging
 import random
@@ -24,7 +25,6 @@ user_sessions = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("🐾 /start command triggered")
     user_id = update.effective_user.id
-    name = update.effective_user.first_name or "degen"
     user_sessions[user_id] = {"chain": None, "expecting_address": False}
 
     keyboard = [
@@ -54,6 +54,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
 
+async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    summary = (
+        "🐈💨 *Who is Fartcat?*\n\n"
+        "I’m Fartcat – your degenerate chart-sniffing companion.\n"
+        "I inspect contract addresses across blockchains and spit back the good, the bad, and the stinky.\n"
+        "Whether it’s moon fuel or just a pile of rug, I’ll let you know.\n\n"
+        "🚀 Contract: `0xFARTCATFARTCATFARTCATFARTCAT` *(placeholder)*\n"
+        "📲 Telegram: [@Fartcat_bot](https://t.me/Fartcat_bot)\n"
+        "𝕏 Twitter: [@Fartcat_bot](https://x.com/Fartcat_bot)\n"
+        "🌐 Website: https://fartcat.agent.com\n\n"
+        "*Available Commands:*\n"
+        "/start – Begin sniffing contracts\n"
+        "/info – Get this glorious info\n"
+        "/help – Shows usage and instructions\n"
+        "/exit – Say goodbye to Fartcat"
+    )
+    await update.message.reply_text(summary, disable_web_page_preview=True)
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -66,22 +84,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             f"✅ You picked {chain.upper()}.\n😽 Now toss me a contract address to sniff."
         )
-    elif data == "restart":
-        await start(update, context)
     elif data == "exit":
         user_sessions.pop(user_id, None)
         await query.edit_message_text("👃 Smell ya later! Type /start if you wanna sniff again.")
     elif data == "noop":
-        await query.answer("😾 You already picked a chain. Try again with /start if you must.", show_alert=False)
+        await query.answer("😾 You already picked a chain. Just send the contract.", show_alert=False)
 
 async def send_result_with_buttons(update: Update, chain, address, summary):
     keyboard = [
         [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="noop")],
         [InlineKeyboardButton("📈 Sniff the Chart", url=f"https://dexscreener.com/{chain}/{address}")],
-        [InlineKeyboardButton("💩 Show Me Another Stinker", callback_data="restart")],
         [InlineKeyboardButton("❌ I'm Done Here", callback_data="exit")]
     ]
-    await update.message.reply_text(summary, reply_markup=InlineKeyboardMarkup(keyboard))
+    footer = "\n\n👃 Wanna sniff more? Just drop another contract."
+    await update.message.reply_text(summary + footer, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -92,7 +108,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         address = update.message.text.strip()
         result = agent.process(address, chain)
         await send_result_with_buttons(update, chain, address, fartcat_wrap(result["summary"]))
-        session["expecting_address"] = False
     else:
         await update.message.reply_text("😿 You didn’t pick a chain. Type /start before I knock over your portfolio.")
 
@@ -109,6 +124,8 @@ def fartcat_wrap(summary: str) -> str:
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("info", info))
+    app.add_handler(CommandHandler("help", info))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     logger.info("😼 Fartcat Bot is gassing up...")
