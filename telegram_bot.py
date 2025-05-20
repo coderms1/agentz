@@ -117,6 +117,8 @@ def fartcat_wrap(summary: str) -> str:
         "😹 Not financial advice, but I did bury this chart.",
         "🐾 Might be moon, might be mold.",
         "🚽 Litterbox-worthy. You decide."
+        "🍄‍🟫 This one seems like a FUN-GUY!"
+        "💩 OMG.. WHAT did you EAT?!"
     ]
     return f"{summary}\n\n{random.choice(tails)}"
 
