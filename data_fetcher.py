@@ -60,7 +60,8 @@ class DataFetcher:
             url = pair.get("url", f"https://dexscreener.com/{chain}/{address}")
 
             fdv = float(pair.get("fdv", 0) or 0)
-            lp_locked = "🔥" if pair.get("liquidity", {}).get("locked") else "💀"
+            lp_locked_val = pair.get("liquidity", {}).get("locked")
+            lp_locked = "🔥" if lp_locked_val and str(lp_locked_val).lower() != "false" and str(lp_locked_val) != "0" else "💀"
             launchpad = pair.get("pairCreatedSource", {}).get("name", "Unknown")
 
             flavor = random.choice([
