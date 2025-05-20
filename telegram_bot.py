@@ -36,15 +36,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     welcome = (
-        "😼 Yo, I’m Fartcat.\n"
-        "I sniff contracts and roast charts.\n"
-        "You degen, I judge. That’s the deal. 💩\n\n"
-        "👇 Enter /start and then pick a chain to start sniffing:\n"
-        "• Ethereum 🧅\n"
-        "• Solana 🐬\n"
-        "• SUI 🧪\n"
-        "• Base 🧻\n"
-        "• Abstract 🧠\n\n"
+        "PURRR-FECTO! 🐱\n"
+        "👇 Select a chain to start sniffing:\n\n"
+        "• Ethereum 🧠\n"
+        "• Solana 💊\n"
+        "• SUI 💦\n"
+        "• Base 🔵\n"
+        "• Abstract 🧪\n\n"
         "Then drop a contract address and I’ll do my thing.\n"
         "💨 I might help. I might just fart on it. No promises."
     )
