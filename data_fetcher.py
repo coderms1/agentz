@@ -93,7 +93,7 @@ class DataFetcher:
             ])
 
             # Get risk score
-            risk_summary = ""
+            risk_summary = "*Risk data not available.*"
             if chain.lower() in ["ethereum", "base", "abstract"]:
                 goplus_data, err = fetch_goplus_risk(chain, address)
                 if goplus_data:
