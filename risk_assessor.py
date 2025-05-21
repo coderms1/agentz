@@ -97,6 +97,7 @@ def calculate_risk_score(goplus_data, chain, address):
             score += wallet_score
         elif err:
             wallet_flags.append(err)
+        
 
     flags += wallet_flags
     return min(score, 100), flags
@@ -112,5 +113,9 @@ def generate_risk_summary(score, flags):
         level = "🟢 Low risk"
         recommendation = "So far, smells clean."
 
-    flag_str = ", ".join(flags[:3]) + ("..." if len(flags) > 3 else "")
+    if not flags:
+      flag_str = "No major red flags"
+    else:
+      flag_str = ", ".join(flags[:3]) + ("..." if len(flags) > 3 else "")
+    
     return f"{level} (Score: {score}/100).\n{flag_str}.\n{recommendation}"
