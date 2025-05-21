@@ -4,16 +4,14 @@ import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, CallbackQueryHandler, filters
-)
-from market_strategist import MarketStrategist
+    ContextTypes, CallbackQueryHandler, filters)
+from data_fetcher import DataFetcher
 from dotenv import load_dotenv
 from telegram.constants import ParseMode
 from telegram import InputFile
-from legacy.risk_assessor import fetch_goplus_risk, calculate_risk_score, generate_risk_summary
 
 load_dotenv()
-
+agent = DataFetcher()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not BOT_TOKEN:
     raise EnvironmentError("❌ TELEGRAM_BOT_TOKEN not found in .env file")
@@ -21,7 +19,6 @@ if not BOT_TOKEN:
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-agent = MarketStrategist()
 user_sessions = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,7 +56,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         address = update.message.text.strip()
         session["address"] = address
 
-        basic = agent.fetcher.fetch_basic_info(address, chain)
+        basic = agent.fetch_basic_info(address, chain)
         keyboard = [[InlineKeyboardButton("🔍 Sniff Deeper", callback_data="deep_sniff")]]
 
         await update.message.reply_text(
@@ -82,7 +79,7 @@ async def deep_sniff_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     chain = session["chain"]
     address = session["address"]
-    full = agent.fetcher.fetch_full_info(address, chain, fetch_goplus_risk, calculate_risk_score, generate_risk_summary)
+    full = agent.fetch_full_info(address, chain)
 
     keyboard = [
         [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="change_chain")],
