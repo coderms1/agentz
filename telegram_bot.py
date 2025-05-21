@@ -7,8 +7,11 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, CallbackQueryHandler, filters
 )
-from market_strategist import MarketStrategist
+from data_fetcher import MarketStrategist
 from dotenv import load_dotenv
+from telegram.constants import ParseMode
+from telegram import InputFile
+
 
 load_dotenv()
 
@@ -130,6 +133,20 @@ def fartcat_wrap(summary: str) -> str:
         "💩 OMG.. WHAT did you EAT?!"
     ]
     return f"{summary}\n\n{random.choice(tails)}"
+# Hidden command: /meow
+async def meow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with open("resources/memes/meow.jpg", "rb") as photo:
+        await update.message.reply_photo(photo, caption="🐱 *MEOW.*", parse_mode=ParseMode.MARKDOWN)
+
+# Hidden command: /rugcheck
+async def rugcheck(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with open("resources/memes/rug.jpg", "rb") as photo:
+        await update.message.reply_photo(photo, caption="🧼 Just doing a lil rugcheck...", parse_mode=ParseMode.MARKDOWN)
+
+# Hidden command: /sendit
+async def sendit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with open("resources/memes/sendit.gif", "rb") as gif:
+        await update.message.reply_animation(gif, caption="🚀 Send it, degen!", parse_mode=ParseMode.MARKDOWN)
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -138,6 +155,9 @@ def main():
     app.add_handler(CommandHandler("help", info))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(CommandHandler("meow", meow))
+    app.add_handler(CommandHandler("rugcheck", rugcheck))
+    app.add_handler(CommandHandler("sendit", sendit))
     logger.info("😼 Fartcat Bot is gassing up...")
     app.run_polling()
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from market_strategist import MarketStrategist
+from data_fetcher import MarketStrategist
 from db_logger import log_query
 
 app = FastAPI()
