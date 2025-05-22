@@ -23,23 +23,19 @@ user_sessions = {}
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "😼 <b>Yo! I’m Fartcat</b>\n"
-        "I sniff contracts and roast charts. You degen, I judge. That’s the deal. 💩\n\n"
-        "👇 <b>Here’s how to use me without getting clawed:</b>\n"
-        "• <b>/start</b> – Activate sniff mode and pick a chain 🧬\n"
-        "• Then paste a contract address 💥\n"
-        "• I’ll return the full fart report with:\n"
-        "    └ 💰 Token stats\n"
-        "    └ 🛡️ Rug risk score\n"
-        "    └ 🔗 Sniffer + Bubble links\n\n"
-        "<b>🔍 Advanced Commands:</b>\n"
-        "• /help – You’re here right now. Good job.\n"
-        "• /meow – For no reason at all 🐱\n"
-        "• /rugcheck – Run a direct rug check on a token\n"
-        "• /sendit – Maybe don’t, but... try it 🚀\n\n"
-        "📌 <b>Example:</b>\n"
-        "/start → Choose chain → Paste CA → Receive intel 💨\n\n"
-        "<i>✨ Built for the bold. Loved by the reckless. Guided by the stank.</i>",
+        "🐈‍⬛ <b>Fartcat Help Manual</b>\n\n"
+        "🧠 I sniff contracts. I judge them. I fart.\n\n"
+        "👉 Use /start to pick a chain\n"
+        "📩 Then paste a contract address\n\n"
+        "<b>🔥 Commands:</b>\n"
+        "/start – Begin sniff session\n"
+        "/help – Show this help\n\n"
+        "<b>🛠 Tools used:</b>\n"
+        "• Dexscreener\n"
+        "• GoPlus\n"
+        "• TokenSniffer\n"
+        "• Bubblemaps\n\n"
+        "💩 Let's degen smart.",
         parse_mode=ParseMode.HTML
     )
 
@@ -57,41 +53,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome = (
         "PURRR-FECTO! 🐱\n"
-        "🐽 Sniff mode engaged.\n\n"
-        "1️⃣ Pick a chain below: ⛓️\n"
-        "2️⃣ Toss me a CA 📃\n\n"
-        "Then I’ll do my thing. 🙀\n\n"
+        "👇 Select a chain to start sniffing:\n\n"
+        "Then drop a contract address and I’ll do my thing.\n"
         "💨 I might help. I might just fart on it. No promises."
     )
 
-    if update.message:
-        await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
-    elif update.callback_query:
-        await update.callback_query.edit_message_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(welcome, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     session = user_sessions.get(user_id)
-    if not session or "chain" not in session:
-        await update.message.reply_text("😿 You didn’t pick a chain. Use /start first.")
+
+    if not session or not session.get("chain"):
+        await update.message.reply_text("😿 You didn’t pick a chain. Type /start first.")
         return
 
     chain = session["chain"]
     address = update.message.text.strip()
 
-    full_report = agent.fetch_full_info(address, chain)
+    logger.info(f"📥 Handling address: {address} on {chain}")
+    result = agent.fetch_basic_info(address, chain)
 
     keyboard = [
-        [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="chain_reset")],
+        [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data=f"chain_{chain}")],
         [InlineKeyboardButton("❌ Exit", callback_data="exit")]
     ]
 
-    await update.message.reply_text(
-        full_report,
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        disable_web_page_preview=False
-    )
+    await update.message.reply_text(result, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML, disable_web_page_preview=False)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -103,8 +91,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chain = data.split("_")[1]
         user_sessions[user_id] = {"chain": chain}
         await query.edit_message_text(f"✅ You picked {chain.upper()}.\n😽 Now toss me a contract address to sniff.")
-    elif data == "chain_reset":
-        await start(update, context)
     elif data == "exit":
         user_sessions.pop(user_id, None)
         await query.edit_message_text("👃 Smell ya later! Type /start if you wanna sniff again.")
