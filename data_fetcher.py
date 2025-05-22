@@ -45,29 +45,65 @@ class DataFetcher:
         try:
             chain_url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
             response = requests.get(chain_url, timeout=10)
-            if response.ok:
-                data = response.json()
-                logging.info(f"📦 Dexscreener raw response for {chain} / {address}:\n{data}")
-                if "pair" in data and data["pair"]:
-                    return self.format_basic(data["pair"], chain, address)
-                elif "pairs" in data and data["pairs"]:
-                    return self.format_basic(data["pairs"][0], chain, address)
-                else:
-                    return f"😿 Couldn't find basic info on {chain.upper()}"
+            data = response.json()
 
+            logging.info(f"📦 Dexscreener raw response for {chain} / {address}:\n{data}")
+
+            if "pair" in data and data["pair"]:
+                return self.format_basic(data["pair"], chain, address)
+            elif "pairs" in data and data["pairs"]:
+                return self.format_basic(data["pairs"][0], chain, address)
+            
+            # Fallback to /search if nothing found
+            search_url = f"https://api.dexscreener.com/latest/dex/search?q={address}"
+            response = requests.get(search_url, timeout=10)
+            search_data = response.json()
+            logging.info(f"🔍 Dexscreener fallback search for {address}:\n{search_data}")
+
+            filtered = [
+                p for p in search_data.get("pairs", [])
+                if p.get("chainId", "").lower() == chain or p.get("chainName", "").lower() == chain
+            ]
+
+            if filtered:
+                return self.format_basic(filtered[0], chain, address)
+
+            return f"😿 Couldn't find basic info on {chain.upper()}"
+        
         except Exception as e:
             return f"😶 Error loading basic info: {e}"
+
+
 
     def fetch_full_info(self, address, chain, fetch_goplus_risk, calculate_risk_score, generate_risk_summary):
         try:
             chain_url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
             response = requests.get(chain_url, timeout=10)
-            if response.ok:
-                data = response.json()
-                logging.info(f"📦 Dexscreener raw response for {chain} / {address}:\n{data}")
-                if data and "pair" in data and data["pair"]:
-                    return self.format_full(data["pair"], chain, address, fetch_goplus_risk, calculate_risk_score, generate_risk_summary)
+            data = response.json()
+
+            logging.info(f"📦 Dexscreener full response for {chain} / {address}:\n{data}")
+
+            if "pair" in data and data["pair"]:
+                return self.format_full(data["pair"], chain, address, fetch_goplus_risk, calculate_risk_score, generate_risk_summary)
+            elif "pairs" in data and data["pairs"]:
+                return self.format_full(data["pairs"][0], chain, address, fetch_goplus_risk, calculate_risk_score, generate_risk_summary)
+
+            # Fallback to /search if nothing found
+            search_url = f"https://api.dexscreener.com/latest/dex/search?q={address}"
+            response = requests.get(search_url, timeout=10)
+            search_data = response.json()
+            logging.info(f"🔍 Dexscreener full fallback search for {address}:\n{search_data}")
+
+            filtered = [
+                p for p in search_data.get("pairs", [])
+                if p.get("chainId", "").lower() == chain or p.get("chainName", "").lower() == chain
+            ]
+
+            if filtered:
+                return self.format_full(filtered[0], chain, address, fetch_goplus_risk, calculate_risk_score, generate_risk_summary)
+
             return f"😿 Couldn't sniff full info on {chain.upper()}"
+        
         except Exception as e:
             return f"😶 Error during full sniff: {e}"
 

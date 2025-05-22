@@ -11,6 +11,7 @@ from data_fetcher import DataFetcher
 from dotenv import load_dotenv
 from telegram.constants import ParseMode
 from telegram import InputFile
+from guardrails import fetch_goplus_risk, calculate_risk_score, generate_risk_summary
 
 load_dotenv()
 agent = DataFetcher()
@@ -69,7 +70,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         basic = agent.fetch_basic_info(address, chain)
         keyboard = [
-            [InlineKeyboardButton("🔍 Scoop Litterbox", callback_data="deep_sniff")],
+            [InlineKeyboardButton("🥸🔍 Sniff Deeper", callback_data="deep_sniff")],
             [InlineKeyboardButton("🔙 Go Back", callback_data="change_chain")]
         ]
 
@@ -93,7 +94,13 @@ async def deep_sniff_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     chain = session["chain"]
     address = session["address"]
-    full = agent.fetch_full_info(address, chain)
+    full = agent.fetch_full_info(
+        address,
+        chain,
+        fetch_goplus_risk,
+        calculate_risk_score,
+        generate_risk_summary
+        )
 
     keyboard = [
         [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="change_chain")],
