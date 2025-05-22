@@ -1,81 +1,114 @@
 # data_fetcher.py
 
-import requests
 import logging
-from guardrails import fetch_goplus_risk, calculate_risk_score, generate_risk_summary
+import requests
+from guardrails import (
+    fetch_goplus_risk,
+    calculate_risk_score,
+    fetch_token_sniffer_score,
+    fetch_bubblemaps_info,
+    compose_fart_report
+)
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DataFetcher:
     def __init__(self):
         pass
 
-    def fetch_all_reports(self, address, chain):
-        try:
-            pair_data = self.query_dexscreener(chain, address)
-            if not pair_data:
-                return "🚫 Token not found on Dexscreener."
-
-            name = pair_data['baseToken']['name']
-            symbol = pair_data['baseToken']['symbol']
-            price = float(pair_data['priceUsd'])
-            liquidity = float(pair_data['liquidity']['usd'])
-            volume = float(pair_data['volume']['h24'])
-            fdv = float(pair_data.get('fdv') or 0)
-            lp_locked = self.get_lp_status(pair_data)
-
-            chart_health = self.assess_chart_health(liquidity, volume, fdv)
-
-            info_block = f"<b>{name} ${symbol}</b> on {chain.capitalize()}\n"
-            info_block += f"Price: ${price:.6f}\n"
-            info_block += f"Volume: ${volume:,.0f} | Liquidity: ${liquidity:,.0f} | LP: {lp_locked}\n"
-            info_block += f"FDV: ${fdv:,.0f}\n"
-            info_block += f"Chart Health: {chart_health}\n\n"
-
-            # Risk Analysis
-            goplus_data, error = fetch_goplus_risk(chain, address)
-            if goplus_data:
-                score, flags = calculate_risk_score(goplus_data, chain, address)
-                summary = generate_risk_summary(score, flags)
-                info_block += "<b>Risk Report:</b>\n" + summary + "\n"
-            else:
-                info_block += "<b>Risk Report:</b>\nRisk data not available.\n"
-
-            return info_block.strip()
-
-        except Exception as e:
-            logger.error(f"❌ Error building report: {e}")
-            return "🚫 Error fetching report."
-
-    def query_dexscreener(self, chain, address):
+    def fetch_basic_info(self, address, chain):
         try:
             url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
             res = requests.get(url, timeout=10)
             data = res.json()
-            if 'pair' in data and data['pair']:
-                return data['pair']
-            elif 'pairs' in data and isinstance(data['pairs'], list) and data['pairs']:
-                return data['pairs'][0]
+            pair = data.get("pair")
+
+            if not pair:
+                logger.info(f"📦 Dexscreener raw response for {chain} / {address}: {data}")
+                search_url = f"https://api.dexscreener.com/latest/dex/search/?q={address}"
+                search_res = requests.get(search_url, timeout=10)
+                data = search_res.json()
+                logger.info(f"🔍 Dexscreener fallback search for {address}: {data}")
+                pairs = data.get("pairs", [])
+                pair = next((p for p in pairs if p["chainId"] == chain), pairs[0] if pairs else None)
+
+            if not pair:
+                return "🚫 Token not found on Dexscreener."
+
+            name = f"{pair['baseToken']['name']} ${pair['baseToken']['symbol']}"
+            price = pair.get("priceUsd", "N/A")
+            liquidity = f"${int(pair['liquidity']['usd']):,}"
+            volume = f"${int(pair['volume']['h24']):,}"
+            fdv = f"${int(pair.get('fdv') or pair.get('marketCap', 0)):,}"
+
+            health = "🟢 Strong"
+            if pair['liquidity']['usd'] < 10000 or pair['volume']['h24'] < 10000:
+                health = "🟠 Weak"
+            if pair['liquidity']['usd'] < 2000 or pair['volume']['h24'] < 2000:
+                health = "🔴 Illiquid"
+
+            chart_url = pair['url']
+
+            return (
+                f"<b>Contract:</b> <a href='tg://copy?text={address}'>{address}</a>\n\n"
+                f"<b>{name}</b> on {chain.capitalize()}\n"
+                f"<b>Price:</b> ${price}\n"
+                f"<b>Liquidity:</b> {liquidity} | <b>Volume:</b> {volume}\n"
+                f"<b>FDV:</b> {fdv} | <b>Chart Health:</b> {health}\n\n"
+                f"<a href='{chart_url}'>View Chart</a>"
+            )
+
         except Exception as e:
-            logger.warning(f"⚠️ Dexscreener fetch failed: {e}")
-        return None
+            logger.exception("❌ Error in fetch_basic_info")
+            return f"⚠️ Failed to fetch token info: {e}"
 
-    def get_lp_status(self, data):
+    def fetch_full_info(self, address, chain):
         try:
-            labels = data.get('labels') or []
-            if any('burn' in label.lower() for label in labels):
-                return "🔥"
-            return "💀"
-        except:
-            return "❓"
+            # Dex fallback logic reused here
+            url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
+            res = requests.get(url, timeout=10)
+            data = res.json()
+            pair = data.get("pair")
 
-    def assess_chart_health(self, liquidity, volume, fdv):
-        try:
-            if liquidity > 50000 and volume > 25000 and fdv > 0:
-                return "🟢 Strong"
-            elif liquidity > 10000 and volume > 5000:
-                return "🟡 Meh"
-            return "🔴 Sus"
-        except:
-            return "❓"
+            if not pair:
+                logger.info(f"📦 Dexscreener full response for {chain} / {address}: {data}")
+                search_url = f"https://api.dexscreener.com/latest/dex/search/?q={address}"
+                search_res = requests.get(search_url, timeout=10)
+                data = search_res.json()
+                logger.info(f"🔍 Dexscreener full fallback search for {address}: {data}")
+                pairs = data.get("pairs", [])
+                pair = next((p for p in pairs if p["chainId"] == chain), pairs[0] if pairs else None)
+
+            if not pair:
+                return "🚫 Token not found on Dexscreener."
+
+            name = f"{pair['baseToken']['name']} ${pair['baseToken']['symbol']}"
+            price = pair.get("priceUsd", "N/A")
+            liquidity = f"${int(pair['liquidity']['usd']):,}"
+            volume = f"${int(pair['volume']['h24']):,}"
+            fdv = f"${int(pair.get('fdv') or pair.get('marketCap', 0)):,}"
+            lp_locked = "💦" if pair['liquidity']['quote'] > 0 else "💀"
+            chart_url = pair['url']
+
+            goplus_data, _ = fetch_goplus_risk(chain, address)
+            goplus_score, goplus_flags = calculate_risk_score(goplus_data, chain, address)
+            sniffer_data, _ = fetch_token_sniffer_score(chain, address)
+            bubble_link, _ = fetch_bubblemaps_info(address)
+
+            fart_report = compose_fart_report(address, chain, goplus_data, goplus_score, goplus_flags, sniffer_data, bubble_link)
+
+            return (
+                f"<b>Contract:</b> <a href='tg://copy?text={address}'>{address}</a>\n\n"
+                f"<b>{name}</b> on {chain.capitalize()}\n"
+                f"<b>Price:</b> ${price}\n"
+                f"<b>Volume:</b> {volume} | <b>Liquidity:</b> {liquidity} | <b>LP:</b> {lp_locked}\n"
+                f"<b>FDV:</b> {fdv}\n"
+                f"<b>Chart Health:</b> 🟢 Strong\n\n"
+                f"<b>Risk Report:</b>\n{fart_report}\n\n"
+                f"<i>😹 Might be alpha, might be catnip.</i>\n"
+                f"<a href='{chart_url}'>Chart Link</a>"
+            )
+
+        except Exception as e:
+            logger.exception("❌ Error in fetch_full_info")
+            return f"❌ Error getting full info: {e}"
