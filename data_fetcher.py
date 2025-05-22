@@ -47,6 +47,7 @@ class DataFetcher:
             response = requests.get(chain_url, timeout=10)
             if response.ok:
                 data = response.json()
+                print(f"📦 Dexscreener raw response for {chain} / {address}:\n{data}")
                 if "pair" in data and data["pair"]:
                     return self.format_basic(data["pair"], chain, address)
                 elif "pairs" in data and data["pairs"]:
@@ -63,6 +64,7 @@ class DataFetcher:
             response = requests.get(chain_url, timeout=10)
             if response.ok:
                 data = response.json()
+                print(f"📦 Dexscreener raw response for {chain} / {address}:\n{data}")
                 if data and "pair" in data and data["pair"]:
                     return self.format_full(data["pair"], chain, address, fetch_goplus_risk, calculate_risk_score, generate_risk_summary)
             return f"😿 Couldn't sniff full info on {chain.upper()}"
