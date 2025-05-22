@@ -1,20 +1,22 @@
+# telegram_bot.py
+
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, CallbackQueryHandler, filters
-)
+    ContextTypes, CallbackQueryHandler, filters)
 from telegram.constants import ParseMode
 from data_fetcher import DataFetcher
-from guardrails import fetch_goplus_risk, calculate_risk_score, generate_risk_summary
 from dotenv import load_dotenv
 
 load_dotenv()
-agent = DataFetcher()
+
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not BOT_TOKEN:
     raise EnvironmentError("❌ TELEGRAM_BOT_TOKEN not found in .env file")
+
+agent = DataFetcher()
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,8 +27,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "😼 I’m Fartcat — your chain-sniffin’, chart-roastin’, fart-droppin’ AI feline.\n\n"
         "💩 Use /start to sniff a contract.\n"
-        "🔍 Use 'Sniff Deeper' after a sniff to analyze risk.\n"
-        "❓ Commands:\n"
+        "❓ Available commands:\n"
         "/start /help /meow /rugcheck"
     )
 
@@ -65,49 +66,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         address = update.message.text.strip()
         session["address"] = address
 
-        basic = agent.fetch_basic_info(address, chain)
+        full = agent.fetch_all_reports(address, chain)
+
         keyboard = [
-            [InlineKeyboardButton("🔍 Sniff Deeper", callback_data="deep_sniff")],
-            [InlineKeyboardButton("🔙 Go Back", callback_data="change_chain")]
+            [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="change_chain")],
+            [InlineKeyboardButton("📈 Chart", url=f"https://dexscreener.com/{chain}/{address}")],
+            [InlineKeyboardButton("❌ Exit", callback_data="exit")]
         ]
 
-        await update.message.reply_text(
-            basic + "\n\n👇 Want the full scoop?",
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode=ParseMode.MARKDOWN
-        )
+        clickable_ca = f"<a href=\"tg://copy?text={address}\">{address}</a>"
+        full_msg = f"<b>Contract:</b> {clickable_ca}\n\n{full}"
+
+        await update.message.reply_text(full_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     else:
         await update.message.reply_text("😿 You didn’t pick a chain. Type /start before I knock over your portfolio.")
-
-async def deep_sniff_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    logger.info("🐾 deep_sniff_handler triggered")  # log to confirm it's running
-
-    user_id = query.from_user.id
-    session = user_sessions.get(user_id)
-    if not session or "chain" not in session or "address" not in session:
-        await query.edit_message_text("😿 Missing session info. Try /start again.")
-        return
-
-    chain = session["chain"]
-    address = session["address"]
-    full = agent.fetch_full_info(
-        address,
-        chain,
-        fetch_goplus_risk,
-        calculate_risk_score,
-        generate_risk_summary
-    )
-
-    keyboard = [
-        [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="change_chain")],
-        [InlineKeyboardButton("📈 Chart", url=f"https://dexscreener.com/{chain}/{address}")],
-        [InlineKeyboardButton("❌ Exit", callback_data="exit")]
-    ]
-
-    await query.edit_message_text(full, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -138,7 +110,6 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help))
-    app.add_handler(CallbackQueryHandler(deep_sniff_handler, pattern="^deep_sniff$"))  # must come before button_handler
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.run_polling()
