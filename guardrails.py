@@ -1,5 +1,3 @@
-# guardrails.py
-
 import os
 import requests
 from dotenv import load_dotenv
@@ -78,7 +76,7 @@ def generate_risk_summary(score, flags):
         return f"🚨 Risky contract: {', '.join(flags)}"
     return f"💀 Extremely risky: {', '.join(flags)}"
 
-def compose_fart_report(address, chain, goplus, goplus_score, goplus_flags, sniff_data, bubble_link):
+def compose_fart_report(address, chain, goplus, goplus_score, goplus_flags, sniff_data, bubble_link, chart_url):
     goplus_summary = generate_risk_summary(goplus_score, goplus_flags)
     sniffer_summary = ""
     if sniff_data:
@@ -96,6 +94,7 @@ def compose_fart_report(address, chain, goplus, goplus_score, goplus_flags, snif
 {sniffer_summary}
 
 <b>🧠 More Tools:</b>
+• <a href="{chart_url}">Dexscreener Chart</a>
 • <a href="{TOKEN_SNIFFER_BASE}/{chain}/{address}">TokenSniffer</a>
 • <a href="{bubble_link}">Bubblemaps</a>
 """
