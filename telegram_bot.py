@@ -23,14 +23,24 @@ user_sessions = {}
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "😼 I’m Fartcat — your chain-sniffin’, chart-roastin’, fart-droppin’ AI feline.\n\n"
-        "📋 Use /start to pick a chain.\n"
-        "📦 Paste a contract to sniff it.\n"
-        "📎 Clicking the contract address copies it to your clipboard.\n"
-        "😺 You’ll get a full fart report instantly.\n\n"
-        "❓ Commands:\n"
-        "/start – Reset chain\n"
-        "/help – This message"
+        "😼 <b>Yo! I’m Fartcat</b>\n"
+        "I sniff contracts and roast charts. You degen, I judge. That’s the deal. 💩\n\n"
+        "👇 <b>Here’s how to use me without getting clawed:</b>\n"
+        "• <b>/start</b> – Activate sniff mode and pick a chain 🧬\n"
+        "• Then paste a contract address 💥\n"
+        "• I’ll return the full fart report with:\n"
+        "    └ 💰 Token stats\n"
+        "    └ 🛡️ Rug risk score\n"
+        "    └ 🔗 Sniffer + Bubble links\n\n"
+        "<b>🔍 Advanced Commands:</b>\n"
+        "• /help – You’re here right now. Good job.\n"
+        "• /meow – For no reason at all 🐱\n"
+        "• /rugcheck – Run a direct rug check on a token\n"
+        "• /sendit – Maybe don’t, but... try it 🚀\n\n"
+        "📌 <b>Example:</b>\n"
+        "/start → Choose chain → Paste CA → Receive intel 💨\n\n"
+        "<i>✨ Built for the bold. Loved by the reckless. Guided by the stank.</i>",
+        parse_mode=ParseMode.HTML
     )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
