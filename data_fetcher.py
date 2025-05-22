@@ -106,7 +106,7 @@ class DataFetcher:
                 f"<b>Chart Health:</b> 🟢 Strong\n\n"
                 f"<b>Risk Report:</b>\n{fart_report}\n\n"
                 f"<i>😹 Might be alpha, might be catnip.</i>\n"
-                f"<a href='{chart_url}'>Chart Link</a>"
+                f"f"{chart_url}"
             )
 
         except Exception as e:

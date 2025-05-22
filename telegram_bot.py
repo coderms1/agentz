@@ -6,17 +6,15 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, CallbackQueryHandler, filters)
-from telegram.constants import ParseMode
 from data_fetcher import DataFetcher
 from dotenv import load_dotenv
+from telegram.constants import ParseMode
 
 load_dotenv()
-
+agent = DataFetcher()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not BOT_TOKEN:
     raise EnvironmentError("❌ TELEGRAM_BOT_TOKEN not found in .env file")
-
-agent = DataFetcher()
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,14 +24,18 @@ user_sessions = {}
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "😼 I’m Fartcat — your chain-sniffin’, chart-roastin’, fart-droppin’ AI feline.\n\n"
-        "💩 Use /start to sniff a contract.\n"
-        "❓ Available commands:\n"
-        "/start /help /meow /rugcheck"
+        "📋 Use /start to pick a chain.\n"
+        "📦 Paste a contract to sniff it.\n"
+        "📎 Clicking the contract address copies it to your clipboard.\n"
+        "😺 You’ll get a full fart report instantly.\n\n"
+        "❓ Commands:\n"
+        "/start – Reset chain\n"
+        "/help – This message"
     )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_sessions[user_id] = {"chain": None, "expecting_address": False}
+    user_sessions[user_id] = {"chain": None}
 
     keyboard = [
         [InlineKeyboardButton("Ethereum 🧅", callback_data="chain_ethereum")],
@@ -59,27 +61,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    session = user_sessions.get(user_id, {"chain": None, "expecting_address": False})
+    session = user_sessions.get(user_id)
+    if not session or "chain" not in session:
+        await update.message.reply_text("😿 You didn’t pick a chain. Use /start first.")
+        return
 
-    if session["expecting_address"] and session["chain"]:
-        chain = session["chain"]
-        address = update.message.text.strip()
-        session["address"] = address
+    chain = session["chain"]
+    address = update.message.text.strip()
 
-        full = agent.fetch_all_reports(address, chain)
+    full_report = agent.fetch_full_info(address, chain)
 
-        keyboard = [
-            [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="change_chain")],
-            [InlineKeyboardButton("📈 Chart", url=f"https://dexscreener.com/{chain}/{address}")],
-            [InlineKeyboardButton("❌ Exit", callback_data="exit")]
-        ]
+    keyboard = [
+        [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="chain_reset")],
+        [InlineKeyboardButton("❌ Exit", callback_data="exit")]
+    ]
 
-        clickable_ca = f"<a href=\"tg://copy?text={address}\">{address}</a>"
-        full_msg = f"<b>Contract:</b> {clickable_ca}\n\n{full}"
-
-        await update.message.reply_text(full_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
-    else:
-        await update.message.reply_text("😿 You didn’t pick a chain. Type /start before I knock over your portfolio.")
+    await update.message.reply_text(
+        full_report,
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        disable_web_page_preview=False
+    )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -89,22 +91,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data.startswith("chain_"):
         chain = data.split("_")[1]
-        user_sessions[user_id] = {"chain": chain, "expecting_address": True}
+        user_sessions[user_id] = {"chain": chain}
         await query.edit_message_text(f"✅ You picked {chain.upper()}.\n😽 Now toss me a contract address to sniff.")
-    elif data == "change_chain":
-        keyboard = [
-            [InlineKeyboardButton("Ethereum 🧅", callback_data="chain_ethereum")],
-            [InlineKeyboardButton("Solana 🐬", callback_data="chain_solana")],
-            [InlineKeyboardButton("SUI 🧪", callback_data="chain_sui")],
-            [InlineKeyboardButton("Base 🧻", callback_data="chain_base")],
-            [InlineKeyboardButton("Abstract 🧠", callback_data="chain_abstract")]
-        ]
-        await query.edit_message_text("🔁 Pick a different chain:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif data == "chain_reset":
+        await start(update, context)
     elif data == "exit":
         user_sessions.pop(user_id, None)
         await query.edit_message_text("👃 Smell ya later! Type /start if you wanna sniff again.")
-    elif data == "noop":
-        await query.answer("😾 You already picked a chain. Just send the contract.", show_alert=False)
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
