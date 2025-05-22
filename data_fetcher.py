@@ -98,7 +98,7 @@ class DataFetcher:
             fart_report = compose_fart_report(address, chain, goplus_data, goplus_score, goplus_flags, sniffer_data, bubble_link)
 
             return (
-                f"<b>Contract:</b> <a href='tg://copy?text={address}'>{address}</a>\n\n"
+                f"<b>Contract:</b>\n<code>{address}</code>\n\n"
                 f"<b>{name}</b> on {chain.capitalize()}\n"
                 f"<b>Price:</b> ${price}\n"
                 f"<b>Volume:</b> {volume} | <b>Liquidity:</b> {liquidity} | <b>LP:</b> {lp_locked}\n"
