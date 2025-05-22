@@ -1,11 +1,9 @@
-# telegram_bot.py
-
 import os
 import logging
 from telegram import Update
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, filters
+    ApplicationBuilder, CommandHandler,
+    ContextTypes
 )
 from telegram.constants import ParseMode
 from dotenv import load_dotenv
@@ -23,24 +21,26 @@ agent = DataFetcher()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "😼 Feed me a contract address and I’ll sniff it out for you...\n"
-        "Expect a full Fart Report 💨 if I find something worth judging."
+        "😼 Send /fart <contract_address> and I’ll sniff it out..."
+        "I'll roast the chart and show you what’s stinky 💨"
     )
 
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    address = update.message.text.strip()
+async def fart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❗ Usage: /fart <contract address>")
+        return
+    address = context.args[0].strip()
     chain = agent.guess_chain(address)
     if not chain:
-        await update.message.reply_text("😿 Couldn't guess the chain. Please enter a valid contract address.")
+        await update.message.reply_text("😿 Couldn't guess the chain. Please try a different address.")
         return
-
     result = agent.fetch_basic_info(address, chain)
     await update.message.reply_text(result, parse_mode=ParseMode.HTML, disable_web_page_preview=False)
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(CommandHandler("fart", fart))
     app.run_polling()
 
 if __name__ == "__main__":

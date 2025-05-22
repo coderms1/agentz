@@ -35,21 +35,21 @@ class DataFetcher:
             pair = data.get("pair")
 
             if not pair:
-                logger.info(f"\U0001F4E6 Dexscreener raw response for {chain} / {address}: {data}")
+                logger.info(f"📦 Dexscreener raw response for {chain} / {address}: {data}")
                 search_url = f"https://api.dexscreener.com/latest/dex/search/?q={address}"
                 search_res = requests.get(search_url, timeout=10)
                 data = search_res.json()
-                logger.info(f"\U0001F50D Dexscreener fallback search for {address}: {data}")
+                logger.info(f"🔍 Dexscreener fallback search for {address}: {data}")
                 pairs = data.get("pairs", [])
                 pair = next((p for p in pairs if p["chainId"].lower() == chain.lower()), pairs[0] if pairs else None)
 
             if not pair:
-                return "\u274c Token not found on Dexscreener."
+                return "❌ Token not found on Dexscreener."
 
             name = f"{pair['baseToken']['name']} ${pair['baseToken']['symbol']}"
             price = pair.get("priceUsd", "N/A")
-            liquidity_val = pair['liquidity']['usd']
-            volume_val = pair['volume']['h24']
+            liquidity_val = pair.get('liquidity', {}).get('usd', 0)
+            volume_val = pair.get('volume', {}).get('h24', 0)
             liquidity = f"${int(liquidity_val):,}"
             volume = f"${int(volume_val):,}"
             fdv = f"${int(pair.get('fdv') or pair.get('marketCap', 0)):,}"
@@ -74,7 +74,12 @@ class DataFetcher:
             else:
                 holder_score = "🔴"
 
-            chart_url = f"https://dexscreener.com/{chain}/{address}"
+            chart_chain = chain.lower()
+            if chart_chain == "abstract":
+                chart_chain = "abstract"
+            elif chart_chain == "base":
+                chart_chain = "base"
+            chart_url = f"https://dexscreener.com/{chart_chain}/{address}"
 
             health = "🟢"
             if liquidity_val < 10000 or volume_val < 10000:
@@ -104,7 +109,6 @@ class DataFetcher:
                 f"LP: {lp_locked}\n"
                 f"Age: {age_score} ({age_str})\n\n"
                 f"{fart_report}\n\n"
-                f"📈 <a href='{chart_url}'>Chart</a>\n\n"
                 f"😹 Might be alpha, might be catnip.\n"
                 f"🔄 Type /start to sniff again."
             )
