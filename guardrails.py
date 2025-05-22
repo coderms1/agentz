@@ -1,3 +1,5 @@
+#guardrails.py
+
 def validate_output(output):
     if isinstance(output, dict):
         if "summary" not in output:

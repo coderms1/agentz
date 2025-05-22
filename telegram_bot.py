@@ -1,3 +1,5 @@
+#telegram_bot.py
+
 import os
 import logging
 import random
@@ -66,7 +68,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session["address"] = address
 
         basic = agent.fetch_basic_info(address, chain)
-        keyboard = [[InlineKeyboardButton("🔍 Scoop Litterbox", callback_data="deep_sniff")]]
+        keyboard = [
+            [InlineKeyboardButton("🔍 Scoop Litterbox", callback_data="deep_sniff")],
+            [InlineKeyboardButton("🔙 Go Back", callback_data="change_chain")]
+        ]
 
         await update.message.reply_text(
             basic + "\n\n👇 Want the full scoop?",

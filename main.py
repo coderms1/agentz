@@ -1,3 +1,5 @@
+#main.py
+
 import requests
 
 def fetch_price_by_contract(address, chain):

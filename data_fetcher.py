@@ -1,3 +1,5 @@
+#data_fetcher.py
+
 import hashlib
 import time
 import os
@@ -45,9 +47,13 @@ class DataFetcher:
             response = requests.get(chain_url, timeout=10)
             if response.ok:
                 data = response.json()
-                if data and "pair" in data and data["pair"]:
+                if "pair" in data and data["pair"]:
                     return self.format_basic(data["pair"], chain, address)
-            return f"😿 Couldn't find basic info on {chain.upper()}"
+                elif "pairs" in data and data["pairs"]:
+                    return self.format_basic(data["pairs"][0], chain, address)
+                else:
+                    return f"😿 Couldn't find basic info on {chain.upper()}"
+
         except Exception as e:
             return f"😶 Error loading basic info: {e}"
 
