@@ -21,6 +21,15 @@ logger = logging.getLogger(__name__)
 
 user_sessions = {}
 
+async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "😼 I’m Fartcat — your chain-sniffin’, chart-roastin’, fart-droppin’ AI feline.\n\n"
+        "💩 Use /start to sniff a contract.\n"
+        "🪠 Use /rugcheck or the 'Scoop Litterbox' button for the meowst rigorous rug check.\n"
+        "❓ Available commands:\n"
+        "/start /help /meow /rugcheck"
+    )
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_sessions[user_id] = {"chain": None, "expecting_address": False}
@@ -57,7 +66,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         session["address"] = address
 
         basic = agent.fetch_basic_info(address, chain)
-        keyboard = [[InlineKeyboardButton("🔍 Sniff Deeper", callback_data="deep_sniff")]]
+        keyboard = [[InlineKeyboardButton("🔍 Scoop Litterbox", callback_data="deep_sniff")]]
 
         await update.message.reply_text(
             basic + "\n\n👇 Want the full scoop?",
@@ -117,11 +126,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("info", info))
-    app.add_handler(CommandHandler("help", info))
-    app.add_handler(CommandHandler("meow", meow))
-    app.add_handler(CommandHandler("rugcheck", rugcheck))
-    app.add_handler(CommandHandler("sendit", sendit))
+    app.add_handler(CommandHandler("help", help))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(CallbackQueryHandler(deep_sniff_handler, pattern="^deep_sniff$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
