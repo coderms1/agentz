@@ -1,17 +1,14 @@
-#telegram_bot.py
-
 import os
 import logging
-import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, CallbackQueryHandler, filters)
-from data_fetcher import DataFetcher
-from dotenv import load_dotenv
+    ContextTypes, CallbackQueryHandler, filters
+)
 from telegram.constants import ParseMode
-from telegram import InputFile
+from data_fetcher import DataFetcher
 from guardrails import fetch_goplus_risk, calculate_risk_score, generate_risk_summary
+from dotenv import load_dotenv
 
 load_dotenv()
 agent = DataFetcher()
@@ -28,8 +25,8 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "😼 I’m Fartcat — your chain-sniffin’, chart-roastin’, fart-droppin’ AI feline.\n\n"
         "💩 Use /start to sniff a contract.\n"
-        "🪠 Use /rugcheck or the 'Scoop Litterbox' button for the meowst rigorous rug check.\n"
-        "❓ Available commands:\n"
+        "🔍 Use 'Sniff Deeper' after a sniff to analyze risk.\n"
+        "❓ Commands:\n"
         "/start /help /meow /rugcheck"
     )
 
@@ -70,7 +67,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         basic = agent.fetch_basic_info(address, chain)
         keyboard = [
-            [InlineKeyboardButton("🥸🔍 Sniff Deeper", callback_data="deep_sniff")],
+            [InlineKeyboardButton("🔍 Sniff Deeper", callback_data="deep_sniff")],
             [InlineKeyboardButton("🔙 Go Back", callback_data="change_chain")]
         ]
 
@@ -86,6 +83,8 @@ async def deep_sniff_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
 
+    logger.info("🐾 deep_sniff_handler triggered")  # log to confirm it's running
+
     user_id = query.from_user.id
     session = user_sessions.get(user_id)
     if not session or "chain" not in session or "address" not in session:
@@ -100,7 +99,7 @@ async def deep_sniff_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         fetch_goplus_risk,
         calculate_risk_score,
         generate_risk_summary
-        )
+    )
 
     keyboard = [
         [InlineKeyboardButton(f"🐾 Chain: {chain.upper()}", callback_data="change_chain")],
@@ -139,8 +138,8 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help))
+    app.add_handler(CallbackQueryHandler(deep_sniff_handler, pattern="^deep_sniff$"))  # must come before button_handler
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(CallbackQueryHandler(deep_sniff_handler, pattern="^deep_sniff$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.run_polling()
 
