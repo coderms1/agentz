@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 import logging
 from telegram import Update
@@ -45,3 +46,28 @@ def main():
 
 if __name__ == "__main__":
     main()
+=======
+# telegram_bot.py
+import os
+import asyncio
+from dotenv import load_dotenv
+from telegram.ext import ApplicationBuilder, CommandHandler
+from trench0r_handler import get_conversation_handler, help as help_command
+import nest_asyncio
+
+load_dotenv()
+nest_asyncio.apply()
+
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+async def main():
+    print("✅ Trench0r Bot initializing...")
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(get_conversation_handler())
+    app.add_handler(CommandHandler("help", help_command))
+
+    await app.run_polling()
+
+if __name__ == "__main__":
+    asyncio.get_event_loop().run_until_complete(main())
+>>>>>>> 7ab909b (trench0r_bot CPR!! He's.. ALIVE!!!)

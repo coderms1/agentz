@@ -1,5 +1,59 @@
+<<<<<<< HEAD
 __pycache__/
 *.pyc
 .venv/
 .env
 .vscode/
+=======
+# py content
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.env
+
+# environments
+.venv/
+.env
+.env.*
+
+# VSCode & PyCharm
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+
+# output / runtime
+*.sqlite3
+*.db
+*.pid
+
+# web & FastAPI
+static/
+media/
+
+# assets (compiled)
+*.zip
+*.tar
+*.tar.gz
+
+# token metadata / images
+abs_kidz_images/
+metadata/
+resources/
+
+# nodes 
+node_modules/
+
+# render
+render.yaml
+
+# secrets
+secrets.json
+>>>>>>> 7ab909b (trench0r_bot CPR!! He's.. ALIVE!!!)
