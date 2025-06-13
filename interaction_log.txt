@@ -1,0 +1,87 @@
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:00:44
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : ❌ Unsupported chain: eth
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:00:53
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : ⚠️ Error from Ethereum: 'str' object has no attribute 'get'
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:04:50
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:05:03
+Prompt   : contract 0x42069abfe407c60cf4ae4112bedead391dba1cdb
+Response : ⚠️ Error from Base: 'str' object has no attribute 'get'
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:05:14
+Prompt   : contract So11111111111111111111111111111111111111112
+Response : 🤔 Claude didn’t return anything helpful.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:05:23
+Prompt   : contract 0x6ef65ca8ef8f1d0fc02993e0b7de7c48f92258aa1355a357c91fce4fdc2e6a4f
+Response : ⚠️ Error from SUI: 'BIRDEYE_API_KEY'
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:07:59
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:08:35
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:08:53
+Prompt   : contract 0x42069abfe407c60cf4ae4112bedead391dba1cdb
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:09:04
+Prompt   : contract So11111111111111111111111111111111111111112
+Response : 🤔 Claude didn’t return anything helpful.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:09:14
+Prompt   : contract 0x6ef65ca8ef8f1d0fc02993e0b7de7c48f92258aa1355a357c91fce4fdc2e6a4f
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:18:34
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
+🗒️  LOGGED INTERACTION
+Time     : 2025-06-13 14:20:32
+Prompt   : contract 0xdac17f958d2ee523a2206206994597c13d831ec7
+Response : 🤔 Claude didn’t return anything helpful.
+
+ℹ️ No profile found for this token.
+
