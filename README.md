@@ -8,6 +8,7 @@
 - **MongoDB** – Persistent storage for agent memory, metadata, and analytics
 - **Render.com** – Hosting for web services, APIs, and background workers
 - **Frameworks & APIs** – Each agent may utilize its own set of third-party tools, including REST APIs, AI/LLM integrations, and blockchain interfaces
+- **Telegram** - Global communication platform
 
 ## 🧩 Project Structure
 
