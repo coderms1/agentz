@@ -48,6 +48,7 @@ The repo is organized into agent-specific directories. Each folder contains code
   |- 04_btc_report.py
 
 shared files/
+  |- README.md
   |- utils/
   |- db/
   |- config/
