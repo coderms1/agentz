@@ -1,18 +1,19 @@
-# 🧠 Multi-Agent AI Hub by MS1
+# Multi-Agent AI Hub by MS1
 
-👋 Welcome to the Multi-Agent AI Hub — a modular project housing a growing collection of custom-built AI agents designed for a wide variety of tasks. Each agent is developed using different tools, frameworks, and technologies to explore various approaches to automation, data analysis, and interaction.
+ elcome to the Multi-Agent AI Hub — a modular project housing a growing collection of custom-built AI agents designed for a wide variety of tasks. Each agent is developed using different tools, frameworks, and technologies to explore various approaches to automation, data analysis, and interaction.
 
-## 🔧 Technologies Used
+## 🔧 Tech Used
 
 - **Python** & **Java** – Core agent logic, utilities, and backend services
 - **MongoDB** – Persistent storage for agent memory, metadata, and analytics
 - **Render.com** – Hosting for web services, APIs, and background workers
 - **Frameworks & APIs** – Each agent may utilize its own set of third-party tools, including REST APIs, AI/LLM integrations, and blockchain interfaces
 - **Telegram** - Global communication platform
+- **Antrhopic** - Dialogue and basic conversation responses / wrapper script 
 
-## 🧩 Project Structure
+##  Structure
 
-The repo is organized into agent-specific directories. Each folder contains code, documentation, and assets relevant to that agent's function.
+🧩 The repo is organized into agent-specific directories. Each folder contains code, documentation, and assets relevant to that agent's function.
 
 ```bash
 /trench0r_bot/
@@ -52,3 +53,6 @@ shared files/
   |- utils/
   |- db/
   |- config/
+
+
+
