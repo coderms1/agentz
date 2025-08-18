@@ -35,10 +35,16 @@ The repo is organized into agent-specific directories. Each folder contains code
   |- x_listener.py
   |- README.md
 
-/agent-two-goes-here/
-  |- App.java
-  |- config/
-  |- resources/
+/smith_1/
+  |- .gitignore
+  |- sm1th_1.0.py
+  |- tools.py
+
+/whizper_agent/
+  |- 01_main.py
+  |- 02_tg_bot.py
+  |- 03_persona.py
+  |- 04_btc_report.py
 
 shared files/
   |- utils/
