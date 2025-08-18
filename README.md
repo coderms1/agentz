@@ -1,4 +1,4 @@
-# Multi-Agent AI Hub by MS1
+# Multi-Agent Hub
 
  elcome to the Multi-Agent AI Hub — a modular project housing a growing collection of custom-built AI agents designed for a wide variety of tasks. Each agent is developed using different tools, frameworks, and technologies to explore various approaches to automation, data analysis, and interaction.
 
@@ -54,5 +54,4 @@ shared files/
   |- db/
   |- config/
 
-
-
+####Thx - MS1
