@@ -20,16 +20,16 @@ Extra “persona” file makes the bot cocky and sarcastic when you ask non-BTC 
 
 **Setup**
 
-Install dependencies:
+>>Install dependencies:
 pip install python-telegram-bot aiohttp pandas numpy
 
-Set environment variable:
+>>Set environment variable:
 export TELEGRAM_BOT_TOKEN="TOKEN-KEY"
 
-Run FastAPI:
+>>Run FastAPI:
 python 01_main.py
 
-In separate terminal run the bot:
+>>In separate terminal run the bot:
 python 02_tg_bot.py
 
 -
