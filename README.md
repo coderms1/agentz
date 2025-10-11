@@ -1,6 +1,6 @@
 # Multi-Agent Hub
 
- elcome to the Multi-Agent AI Hub — a modular project housing a growing collection of custom-built AI agents designed for a wide variety of tasks. Each agent is developed using different tools, frameworks, and technologies to explore various approaches to automation, data analysis, and interaction.
+Welcome to my Multi-Agent AI Hub — a modular project housing a growing collection of custom-built AI agents designed for a wide variety of tasks. Each agent is developed using different tools, frameworks, and technologies to explore various approaches to automation, data analysis, and interaction.
 
 ## 🔧 Tech Used
 
@@ -15,7 +15,7 @@
 
 🧩 The repo is organized into agent-specific directories. Each folder contains code, documentation, and assets relevant to that agent's function.
 
-```bash
+```
 /trench0r_bot/
   |- chain_fallback.py
   |- cli_runner.py
@@ -55,3 +55,5 @@ shared files/
   |- config/
 
 ####Thx - MS1
+
+>> MUCH more to come... 🤖
