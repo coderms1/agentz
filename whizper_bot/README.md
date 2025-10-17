@@ -8,7 +8,7 @@ A simple FastAPI endpoint (/whizper) for quick HTTP checks, and an X listener th
 ---
 
 #### ⚙️ Setup  
-1) Clone the repo & create your env  
+Clone the repo & create your env  
 ```bash
 python -m venv .venv && source .venv/bin/activate  
 pip install -r requirements.txt  
@@ -87,3 +87,4 @@ GitHub Actions runs only the Trends alert job on a schedule (no secrets leak).
 #### 🏗️ **Future details**
 *THIS IS A WORK IN PROGRESS → Expect Consolidation and Script Condensing to Come
 ALSO, EXPANSION & IMPROVEMENTS GALORE!*
+
