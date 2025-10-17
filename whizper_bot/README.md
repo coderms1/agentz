@@ -81,12 +81,13 @@ whizper_bot/
 ````
 
 #### 🚀 **Deploy notes**
-Render: create a Background Worker for python telegram_bot.py; a Web Service for web_ui:app with uvicorn; and optionally a Worker for python x_listener.py.
-GitHub Actions runs only the Trends alert job on a schedule (no secrets leak).
+- Render: create a Background Worker for python telegram_bot.py; a Web Service for web_ui:app with uvicorn; and a Worker for python x_listener.py.
+- GitHub Actions runs only the Trends alert job on a schedule (no secrets leak).
 
 #### 🏗️ **Future details**
 *THIS IS A WORK IN PROGRESS → Expect Consolidation and Script Condensing to Come
 ALSO, EXPANSION & IMPROVEMENTS GALORE!*
+
 
 
 
