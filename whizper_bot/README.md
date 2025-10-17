@@ -2,7 +2,7 @@
 **Whizper does two jobs:**
 
 *Sniff Contracts on Telegram → paste a contract, get a compact report (price, volume, liquidity, FDV, LP status, holders if available) with a proper Dexscreener preview link.  
-Automated Google Trends Alerts → checks your keyword list and posts spikes to X (Twitter) and optionally Telegram on a schedule (via GitHub Actions).  
+Automated Google Trends Alerts → checks your keyword list and posts spikes to X (Twitter) and optionally Telegram on schedule (GitHub chrons).  
 A simple FastAPI endpoint (/whizper) for quick HTTP checks, and an X listener that replies when mentioned.*
 
 ---
@@ -87,5 +87,6 @@ GitHub Actions runs only the Trends alert job on a schedule (no secrets leak).
 #### 🏗️ **Future details**
 *THIS IS A WORK IN PROGRESS → Expect Consolidation and Script Condensing to Come
 ALSO, EXPANSION & IMPROVEMENTS GALORE!*
+
 
 
