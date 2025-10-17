@@ -18,10 +18,10 @@ Fill in .env with PK's and API Credentials
 ```
 **Required**
 
-- TELEGRAM_BOT_TOKEN — BotFather token
-- TELEGRAM_CHAT_ID — channel/user to receive alerts (optional if you only want X)
-- TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET, TWITTER_BEARER_TOKEN — for X
-- BIRDEYE_API_KEY — for Solana/SUI fallback
+- TELEGRAM_BOT_TOKEN → BotFather token
+- TELEGRAM_CHAT_ID → channel/user to receive alerts (optional if you only want X)
+- TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET, TWITTER_BEARER_TOKEN → for X (Twitter)
+- BIRDEYE_API_KEY → Solana/SUI fallback
 
 (Also Recommended: ETHERSCAN_API_KEY, BASESCAN_API_KEY, SOLSCAN_API_KEY)
 
@@ -44,14 +44,14 @@ Enable Trends alerts (GitHub Actions)
 
 #### 🧠 How the contract sniff works
 
-→ Uses Dexscreener tokens endpoint
-→ Pick the highest-liquidity pair on the requested chain.
-→ Build a Dexscreener preview link
+- Uses Dexscreener tokens endpoint
+- Pick the highest-liquidity pair on the requested chain.
+- Build a Dexscreener preview link
 
 If Dexscreener fails, tries fallbacks:
-→ Solana: Solscan → Birdeye
-→ SUI: Birdeye
-→ Ethereum/Base: Etherscan/Basescan (verified, basic info)
+- Solana: Solscan → Birdeye
+- SUI: Birdeye
+- Ethereum/Base: Etherscan/Basescan (verified, basic info)
 
 #### 🗂 Structure
 
@@ -87,4 +87,5 @@ GitHub Actions runs only the Trends alert job on a schedule (no secrets leak).
 #### 🏗️ **Future details**
 *THIS IS A WORK IN PROGRESS → Expect Consolidation and Script Condensing to Come
 ALSO, EXPANSION & IMPROVEMENTS GALORE!*
+
 
