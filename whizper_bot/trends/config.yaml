@@ -1,0 +1,28 @@
+geo: ""
+timeframe: "now 7-d"
+
+threshold_up_pct: 40
+
+baseline:
+  method: "median_last_n"
+  n: 72
+
+cooldown_hours: 6
+
+outputs:
+  telegram: true
+  x: true
+
+terms:
+  - altcoins
+  - altcoin
+  - ethereum
+  - bitcoin dominance
+  - eth btc
+  - meme coin
+  - pumpfun
+  - layer 2
+  - chainlink
+  - solana
+  - copy trading
+  - liquidation

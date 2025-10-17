@@ -1,0 +1,89 @@
+x_env_vars: &x_env_vars
+  - key: TWITTER_API_KEY
+    sync: false
+  - key: TWITTER_API_SECRET
+    sync: false
+  - key: TWITTER_ACCESS_TOKEN
+    sync: false
+  - key: TWITTER_ACCESS_SECRET
+    sync: false
+  - key: TWITTER_BEARER_TOKEN
+    sync: false
+
+services:
+  - type: web
+    name: whizper-web
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn web_ui:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    plan: starter
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEXSCREENER_API
+        value: https://api.dexscreener.com/latest/dex
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: BIRDEYE_API_KEY
+        sync: false
+      - key: ETHERSCAN_API_KEY
+        sync: false
+      - key: BASESCAN_API_KEY
+        sync: false
+      - key: SOLSCAN_API_KEY
+        sync: false
+      - key: TWITTER_LISTEN_HANDLE
+        sync: false
+      - key: PYTRENDS_PROXY
+        sync: false
+
+  - type: worker
+    name: whizper-telegram
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python telegram_bot.py
+    autoDeploy: true
+    plan: starter
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DEXSCREENER_API
+        value: https://api.dexscreener.com/latest/dex
+      - key: BIRDEYE_API_KEY
+        sync: false
+      - key: ETHERSCAN_API_KEY
+        sync: false
+      - key: BASESCAN_API_KEY
+        sync: false
+      - key: SOLSCAN_API_KEY
+        sync: false
+
+  - type: worker
+    name: whizper-x-listener
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python x_listener.py
+    autoDeploy: true
+    plan: starter
+    envVars: *x_env_vars
+
+  - type: cron
+    name: whizper-daily-post
+    env: python
+    schedule: "0 15 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python x_poster.py daily
+    envVars: *x_env_vars
+
+  - type: cron
+    name: whizper-news-pulse
+    env: python
+    schedule: "*/30 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python x_poster.py news
+    envVars: *x_env_vars
