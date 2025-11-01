@@ -13,7 +13,8 @@ Welcome to my Multi-Agent AI Hub — a modular project housing a growing collect
 
 ##  Structure
 
-🧩 The repo is organized into agent-specific directories. Each folder contains code, documentation, and assets relevant to that agent's function.
+🧩 The repo is organized into agent-specific directories. Each folder contains code, docs, and items relevant to that agent's function and purpose.
+💭 Obviously way too many files and needs to be condensed ~ these are the goals!
 
 ```
 /trench0r_bot/
