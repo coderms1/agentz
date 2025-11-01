@@ -1,4 +1,5 @@
 #content.py
+# This is meant to be a list of fallback replies if/when all else fails (i.e. the API)
 import random
 
 WHIZ_WISDOMS = [
@@ -25,4 +26,5 @@ WHIZ_WISDOMS = [
 ]
 
 def pick_wisdom() -> str:
+
     return random.choice(WHIZ_WISDOMS)
