@@ -6,55 +6,24 @@ Welcome to my Multi-Agent AI Hub — a modular project housing a growing collect
 
 - **Python** & **Java** – Core agent logic, utilities, and backend services
 - **MongoDB** – Persistent storage for agent memory, metadata, and analytics
+- **n8n** - Workflow platform for tying togther all the pieces of the puzzle
 - **Render.com** – Hosting for web services, APIs, and background workers
 - **Frameworks & APIs** – Each agent may utilize its own set of third-party tools, including REST APIs, AI/LLM integrations, and blockchain interfaces
-- **Telegram** - Global communication platform
-- **Antrhopic** - Dialogue and basic conversation responses / wrapper script 
+- **Telegram/TG** - Global communication platform / messaging systems for agents to live on
+- **Open AI / Anthropic** - Dialogue and basic conversation responses / wrapper script 
 
-##  Structure
+## 🗺️ Structure
 
 🧩 The repo is organized into agent-specific directories. Each folder contains code, docs, and items relevant to that agent's function and purpose.
 💭 Obviously way too many files and needs to be condensed ~ these are the goals!
 
+## 🤖 Agent List (in order)
 ```
-/trench0r_bot/
-  |- chain_fallback.py
-  |- cli_runner.py
-  |- config.py
-  |- data_bot.py
-  |- data_fetcher.py
-  |- interaction_log.txt
-  |- logger_bot.py
-  |- personality_bot.py
-  |- predictor_bot.py
-  |- price_fetcher.py
-  |- profile_bot.py
-  |- requirements.txt
-  |- score_utils.py
-  |- strategist_bot.py
-  |- telegram_bot.py
-  |- trench0r_handler.py
-  |- web_ui.py
-  |- x_listener.py
-  |- README.md
-
 /smith_1/
-  |- .gitignore
-  |- sm1th_1.0.py
-  |- tools.py
-
 /whizper_agent/
-  |- 01_main.py
-  |- 02_tg_bot.py
-  |- 03_persona.py
-  |- 04_btc_report.py
+/GL1TCH/
+// MUCH more to come... !
+```
+- *MS1* 🌙
 
-shared files/
-  |- README.md
-  |- utils/
-  |- db/
-  |- config/
 
-####Thx - MS1
-
->> MUCH more to come... 🤖
