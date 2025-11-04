@@ -19,7 +19,7 @@ It listens for incoming prompts from web requests or Telegram messages, forwards
   http://localhost:5678/webhook-test/gl1tch-test
 ```
 - **Request Body Example:**
-```json
+```
   {
     "prompt": "Gl1tch, are you online?"
   }
@@ -38,7 +38,7 @@ It listens for incoming prompts from web requests or Telegram messages, forwards
   https://n8n-gl1tch.onrender.com/webhook/gl1tch-test
 ```
 - **Request Body Example:**
-```json
+```
   {
     "prompt": "Gl1tch, analyze this text..."
   }
@@ -53,13 +53,13 @@ It listens for incoming prompts from web requests or Telegram messages, forwards
 - **Purpose:** Passes the user's prompt into an OpenAI Chat Model and retrieves a response.
 - **Input Source:** `HTTP Request`
 - **Prompt Expression:**
-```handlebars
+```
   {{$json.body.prompt}}
 ```
 - **Chat Messages:** None (single-prompt mode)
 - **Model Connected:** `OpenAI Chat Model1`
 - **Output:** Returns a JSON object containing the AI's response, e.g.:
-```json
+```
   {
     "text": "Hey there, GL1TCH is online ⚡"
   }
@@ -80,14 +80,14 @@ It listens for incoming prompts from web requests or Telegram messages, forwards
 - **Purpose:** Sends a structured response back to the requester.
 - **Respond With:** JSON
 - **Response Body:**
-```json
+```
   {
     "reply": "{{ $json.text || 'No response generated' }}"
   }
 ```
 
 - **Example Response:**
-```json
+```
   {
     "reply": "Yo, GL1TCH here — system stable and listening 👾"
   }
@@ -97,25 +97,25 @@ It listens for incoming prompts from web requests or Telegram messages, forwards
 
 ## 🛠️ Workflow Summary
 
-| Step | Node                   | Role                         | Input               | Output               |
-| ---- | ---------------------- | ---------------------------- | ------------------- | -------------------- |
-| 1️⃣   | **Webhook**            | Receives POST request        | User prompt         | JSON body            |
-| 2️⃣   | **HTTP Request**       | Forwards to LLM chain        | Webhook output      | Same data            |
-| 3️⃣   | **Basic LLM Chain**    | Builds prompt & calls OpenAI | `$json.body.prompt` | AI response          |
-| 4️⃣   | **OpenAI Chat Model**  | Generates completion         | Prompt text         | `{ "text": "..." }`  |
-| 5️⃣   | **Respond to Webhook** | Returns output               | LLM output          | `{ "reply": "..." }` |
+| Step  | Node                   | Role                         | Input               | Output               |
+| ----  | ---------------------- | ---------------------------- | ------------------- | -------------------- |
+| 1.    | **Webhook**            | Receives POST request        | User prompt         | JSON body            |
+| 2.    | **HTTP Request**       | Forwards to LLM chain        | Webhook output      | Same data            |
+| 3.    | **Basic LLM Chain**    | Builds prompt & calls OpenAI | `$json.body.prompt` | AI response          |
+| 4.    | **OpenAI Chat Model**  | Generates completion         | Prompt text         | `{ "text": "..." }`  |
+| 5.    | **Respond to Webhook** | Returns output               | LLM output          | `{ "reply": "..." }` |
 
 ---
 
 ## 🧪 Test Command
-```powershell
-Invoke-WebRequest -Uri "https://n8n-gl1tch.onrender.com/webhook/gl1tch-test" `
+```
+Invoke-WebRequest -Uri "https://<n8n-project>.onrender.com/webhook/<agentt>-test" `
 -Method POST -Body '{"prompt":"Gl1tch, are you online?"}' `
 -ContentType "application/json"
 ```
 
 **Expected Output:**
-```json
+```
 {
   "reply": "Hey there! Gl1tch reporting in ⚡"
 }
@@ -124,15 +124,15 @@ Invoke-WebRequest -Uri "https://n8n-gl1tch.onrender.com/webhook/gl1tch-test" `
 ---
 
 ## 🧰 Environment Variables (`.env`)
-```ini
 # Core Keys
+```
 OPENAI_API_KEY=your_api_key_here
 
 # Agent Info
 AGENT_NAME=GL1TCH
 AGENT_PORT=8080
 GL1TCH_API_URL=https://gl1tch-agent.onrender.com
-WEBHOOK_URL=https://n8n-gl1tch.onrender.com/webhook/gl1tch-test
+WEBHOOK_URL=https://<n8n-project>.onrender.com/webhook/<agent>-test
 
 # Optional Future Variables
 GL1TCH_MODEL=gpt-5
@@ -149,3 +149,5 @@ SERVICE_TYPE=agent
 - 🤖 Add Telegram and X(Twitter) bot layers
 - 🧠 Introduce persistent memory between sessions
 - ⚙️ Add health monitoring & uptime checks for both Render services
+
+~ *MS1* 🌙
