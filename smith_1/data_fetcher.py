@@ -1,3 +1,6 @@
+#data_fetcher.py:
+
+
 import logging
 import requests
 from guardrails import (
@@ -5,60 +8,100 @@ from guardrails import (
     calculate_risk_score,
     fetch_token_sniffer_score,
     fetch_bubblemaps_info,
-    compose_reality_check
+    compose_reality_check,
 )
 
 logger = logging.getLogger(__name__)
 
+
 class DataFetcher:
     def __init__(self):
+        # Keeping this lightweight on purpose.
+        # If we need config/state later, this is where it’ll live.
         pass
 
-    def guess_chain(self, address):
+    def guess_chain(self, address: str) -> str | None:
+        """
+        Best-effort guess based on address format.
+        Not perfect, but good enough to auto-route most of the time.
+        """
+        # EVM-ish (Ethereum/Base/etc.)
         if address.startswith("0x") and len(address) == 42:
             return "ethereum"
+
+        # Solana (base58, usually 44 chars for common mints)
         if len(address) == 44 and not address.startswith("0x"):
             return "solana"
+
+        # These two are… vibes-based. If they bite us later, we’ll tighten them up.
         if len(address) == 66 and address.startswith("0x"):
             return "base"
         if len(address) == 66 and not address.startswith("0x"):
             return "sui"
+
+        # This one is a little odd. Leaving it as-is since you had it.
+        # (If Abstract uses EVM-style 0x addresses, we may want to re-check this rule.)
         if address.startswith("0x") and len(address) == 40:
             return "abstract"
+
         return None
 
-    def fetch_basic_info(self, address, chain):
+    def fetch_basic_info(self, address: str, chain: str) -> str:
+        """
+        Pulls basic token/pair info from Dexscreener, then runs guardrails checks.
+        Returns a formatted HTML message (Telegram-friendly).
+        """
         try:
+            # First try the direct pair endpoint.
             url = f"https://api.dexscreener.com/latest/dex/pairs/{chain}/{address}"
             res = requests.get(url, timeout=10)
             data = res.json()
             pair = data.get("pair")
 
+            # Dexscreener can be… temperamental. If it doesn't give us a pair,
+            # fall back to search and pick the best match for the chain.
             if not pair:
                 logger.info(f"📦 Dexscreener raw response for {chain} / {address}: {data}")
+
                 search_url = f"https://api.dexscreener.com/latest/dex/search/?q={address}"
                 search_res = requests.get(search_url, timeout=10)
                 data = search_res.json()
+
                 logger.info(f"🔍 Dexscreener fallback search for {address}: {data}")
                 pairs = data.get("pairs", [])
-                pair = next((p for p in pairs if p["chainId"].lower() == chain.lower()), pairs[0] if pairs else None)
+
+                # Prefer exact chain match; if not, just take the first pair returned.
+                pair = next(
+                    (p for p in pairs if p.get("chainId", "").lower() == chain.lower()),
+                    pairs[0] if pairs else None,
+                )
 
             if not pair:
                 return "❌ Token not found on Dexscreener."
 
+            # Token display bits
             name = f"{pair['baseToken']['name']} ${pair['baseToken']['symbol']}"
             price = pair.get("priceUsd", "N/A")
-            liquidity_val = pair.get('liquidity', {}).get('usd', 0)
-            volume_val = pair.get('volume', {}).get('h24', 0)
+
+            # Numbers we care about for sanity checks
+            liquidity_val = pair.get("liquidity", {}).get("usd", 0) or 0
+            volume_val = pair.get("volume", {}).get("h24", 0) or 0
+
             liquidity = f"${int(liquidity_val):,}"
             volume = f"${int(volume_val):,}"
-            fdv = f"${int(pair.get('fdv') or pair.get('marketCap', 0)):,}"
 
+            # Dexscreener is inconsistent here depending on chain/pair. Cover both.
+            fdv_val = pair.get("fdv") or pair.get("marketCap", 0) or 0
+            fdv = f"${int(fdv_val):,}"
+
+            # LP lock indicator. Not gospel, but a quick “hm” flag.
             lp_locked = "🔥" if pair.get("liquidityLocked", False) else "☠️"
 
-            age_obj = pair.get("age", {})
-            age_days = age_obj.get("days", 0)
+            # Age scoring
+            age_obj = pair.get("age", {}) or {}
+            age_days = age_obj.get("days", 0) or 0
             age_str = age_obj.get("human", f"{age_days}d")
+
             if age_days > 30:
                 age_score = "🟢"
             elif age_days >= 7:
@@ -66,7 +109,8 @@ class DataFetcher:
             else:
                 age_score = "🔴"
 
-            holders = pair.get("holders", 0)
+            # Holder scoring (also not always present depending on source coverage)
+            holders = pair.get("holders", 0) or 0
             if holders >= 1000:
                 holder_score = "🟢"
             elif holders >= 500:
@@ -74,27 +118,46 @@ class DataFetcher:
             else:
                 holder_score = "🔴"
 
+            # Chart link formatting
             chart_chain = chain.lower()
             if chart_chain == "abstract":
                 chart_chain = "abstract"
             elif chart_chain == "base":
                 chart_chain = "base"
+
             chart_url = f"https://dexscreener.com/{chart_chain}/{address}"
 
+            # Quick “health” heuristic: low liq or low vol = yellow/red.
+            # Not calling it a rug signal, just “don’t pretend this is liquid”.
             health = "🟢"
-            if liquidity_val < 10000 or volume_val < 10000:
+            if liquidity_val < 10_000 or volume_val < 10_000:
                 health = "🟡"
-            if liquidity_val < 2000 or volume_val < 2000:
+            if liquidity_val < 2_000 or volume_val < 2_000:
                 health = "🔴"
 
+            # Launch vibes: if it’s linked to pump.fun, cool.
+            # Otherwise, at least older than a day gets a small green.
             launch = "🟢" if "pump.fun" in pair.get("url", "").lower() else ("🟢" if age_days > 1 else "🔴")
 
+            # Guardrails / risk checks
             goplus_data, _ = fetch_goplus_risk(chain, address)
             goplus_score, goplus_flags = calculate_risk_score(goplus_data, chain, address)
+
             sniffer_data, _ = fetch_token_sniffer_score(chain, address)
             bubble_link, _ = fetch_bubblemaps_info(address)
-            reality_check = compose_reality_check(address, chain, goplus_data, goplus_score, goplus_flags, sniffer_data, bubble_link, chart_url)
 
+            reality_check = compose_reality_check(
+                address,
+                chain,
+                goplus_data,
+                goplus_score,
+                goplus_flags,
+                sniffer_data,
+                bubble_link,
+                chart_url,
+            )
+
+            # Telegram-ready HTML payload
             return (
                 f"<b>Contract:</b>\n<code>{address}</code>\n\n"
                 f"<b>{name}</b> on {chain.title()}\n"
@@ -114,5 +177,6 @@ class DataFetcher:
             )
 
         except Exception as e:
+            # If this fires, I want the traceback in logs but a clean message in chat.
             logger.exception("❌ Error in fetch_basic_info")
             return f"⚠️ Failed to fetch token info: {e}"
